@@ -1,9 +1,16 @@
-use crate::{error::Error, utils::any::Any};
+use crate::{
+    error::Error,
+    utils::{any::Any, bytes::Bytes},
+};
 use crossterm::event::Event as CrosstermEvent;
 use derive_more::From;
+use ratatui::{backend::CrosstermBackend, Terminal as RatatuiTerminal};
+use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ulid::Ulid;
+
+type Terminal = RatatuiTerminal<CrosstermBackend<Bytes>>;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
@@ -16,31 +23,52 @@ pub enum Event {
     Config(Config),
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct State;
+pub struct View {
+    buffer_id: Ulid,
+    terminal: Terminal,
+    bytes: Bytes,
+}
 
-impl State {
-    fn new() -> Self {
-        Self
-    }
+pub struct ClientState {
+    view_id: Ulid,
 }
 
 #[derive(Default)]
 pub struct Editor {
-    clients: HashMap<Ulid, State>,
+    buffers: HashMap<Ulid, Rope>,
+    views: HashMap<Ulid, View>,
+    clients: HashMap<Ulid, Option<ClientState>>,
 }
 
 impl Editor {
     pub fn new_client(&mut self) -> Ulid {
         let client_id = Ulid::new();
 
-        self.clients.insert(client_id, State::new());
+        self.clients.insert(client_id, None);
 
         client_id
     }
 
-    pub fn state(&self, client_id: &Ulid) -> Option<&State> {
-        self.clients.get(client_id)
+    fn new_view(buffer_id: Ulid) -> Result<View, Error> {
+        let bytes = Bytes::default();
+        let backend = CrosstermBackend::new(bytes.clone());
+        let terminal = Terminal::new(backend)?;
+        let view = View {
+            buffer_id,
+            terminal,
+            bytes,
+        };
+
+        view.ok()
+    }
+
+    pub fn render(&mut self, client_id: &Ulid) -> Option<Vec<u8>> {
+        let client_state = self.clients.get(client_id)?.as_ref()?;
+        let view = self.views.get_mut(&client_state.view_id)?;
+
+        view.terminal.draw(|frame| std::todo!());
+
+        view.bytes.take().some()
     }
 
     pub async fn feed(&self, client_id: &Ulid, event: Event) -> Result<bool, Error> {

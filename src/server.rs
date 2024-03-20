@@ -68,8 +68,8 @@ impl Server {
             ().ok()
         };
         let send = async {
-            while let Some(state) = editor_send.get().await.state(&client_id) {
-                state.encode()?.binary_message().send_to(&mut sink).await?;
+            while let Some(bytes) = editor_send.get().await.render(&client_id) {
+                bytes.binary_message().send_to(&mut sink).await?;
                 interval.tick().await;
             }
 
