@@ -1,0 +1,23 @@
+[package]
+name = "ftg"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.3", features = ["derive"] }
+crossterm = { version = "0.27.0", features = ["event-stream", "serde", "use-dev-tty"] }
+derive_more = "0.99.17"
+futures = "0.3.30"
+poem = { version = "2.0.1", features = ["websocket"] }
+poem-openapi = "4.0.1"
+postcard = { version = "1.0.8", features = ["use-std"] }
+serde = "1.0.197"
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
+tokio-tungstenite = "0.21.0"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["json"] }
+ulid = "1.1.2"
+url = "2.5.0"
+
+[lints.clippy]
+pedantic = "deny"
