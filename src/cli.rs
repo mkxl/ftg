@@ -1,7 +1,7 @@
 use crate::{client::Client, error::Error, server::Server};
 use clap::{Args, Parser, Subcommand};
+use http::Uri;
 use std::{net::Ipv4Addr, path::PathBuf};
-use url::Url;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -20,10 +20,12 @@ pub enum Command {
 #[derive(Args)]
 pub struct ClientArgs {
     #[arg(long, default_value_t = Client::default_server_address())]
-    pub server_address: Url,
+    pub server_address: Uri,
 
     #[arg(long)]
     pub log_filepath: Option<PathBuf>,
+
+    pub filepath: Option<PathBuf>,
 }
 
 impl ClientArgs {

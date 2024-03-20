@@ -1,7 +1,6 @@
 use parking_lot::Mutex;
 use std::{
     io::{Error as IoError, Write},
-    ops::DerefMut,
     sync::Arc,
 };
 
@@ -12,7 +11,7 @@ pub struct Bytes {
 
 impl Bytes {
     pub fn take(&self) -> Vec<u8> {
-        std::mem::take(self.value.lock().deref_mut())
+        std::mem::take(&mut *self.value.lock())
     }
 }
 

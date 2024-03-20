@@ -8,6 +8,8 @@ clap = { version = "4.5.3", features = ["derive"] }
 crossterm = { version = "0.27.0", features = ["event-stream", "serde", "use-dev-tty"] }
 derive_more = "0.99.17"
 futures = "0.3.30"
+http = "1.1.0"
+itertools = "0.12.1"
 parking_lot = "0.12.1"
 poem = { version = "2.0.1", features = ["websocket"] }
 poem-openapi = "4.0.1"
@@ -15,11 +17,13 @@ postcard = { version = "1.0.8", features = ["use-std"] }
 ratatui = "0.26.1"
 ropey = "1.6.1"
 serde = "1.0.197"
+serde_json = "1.0.114"
 tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
 tokio-tungstenite = "0.21.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["json"] }
 ulid = "1.1.2"
+uri = "0.4.0"
 url = "2.5.0"
 
 [lints.clippy]

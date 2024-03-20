@@ -1,15 +1,16 @@
-use crate::{editor::editor::Event, error::Error, utils::lock::Lock};
+use crate::utils::lock::Lock;
 use futures::{Sink, SinkExt};
 use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
+use ropey::Rope;
 use serde::{Deserialize, Serialize};
+use serde_json::Error as SerdeJsonError;
 use std::{
     fmt::Display,
     fs::File,
-    io::{BufWriter, Error as IoError, Write},
+    io::{BufReader, BufWriter, Error as IoError, Read, Write},
     path::Path,
 };
-use tokio_tungstenite::tungstenite::{Error as TungsteniteError, Message as TungsteniteMessage};
 
 pub trait Any: Sized {
     fn binary_message(self) -> PoemMessage
@@ -17,6 +18,13 @@ pub trait Any: Sized {
         Self: Into<Vec<u8>>,
     {
         PoemMessage::binary(self.into())
+    }
+
+    fn buf_reader(self) -> BufReader<Self>
+    where
+        Self: Read,
+    {
+        BufReader::new(self)
     }
 
     fn buf_writer(self) -> BufWriter<Self>
@@ -44,6 +52,13 @@ pub trait Any: Sized {
         postcard::from_bytes(self.as_ref())
     }
 
+    fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> Result<T, SerdeJsonError>
+    where
+        Self: AsRef<str>,
+    {
+        serde_json::from_str(self.as_ref())
+    }
+
     fn encode(&self) -> Result<Vec<u8>, PostcardError>
     where
         Self: Serialize,
@@ -69,23 +84,29 @@ pub trait Any: Sized {
         Ok(self)
     }
 
-    async fn send_event_to<S: Unpin + Sink<TungsteniteMessage, Error = TungsteniteError>>(
-        self,
-        sink: S,
-    ) -> Result<(), Error>
+    fn open(&self) -> Result<File, IoError>
     where
-        Event: From<Self>,
+        Self: AsRef<Path>,
     {
-        self.convert::<Event>()
-            .encode()?
-            .convert::<TungsteniteMessage>()
-            .send_to(sink)
-            .await?
-            .ok()
+        File::open(self)
+    }
+
+    fn rope(&self) -> Result<Rope, IoError>
+    where
+        Self: AsRef<Path>,
+    {
+        Rope::from_reader(self.open()?.buf_reader())
     }
 
     async fn send_to<S: Unpin + Sink<Self>>(self, mut sink: S) -> Result<(), S::Error> {
         sink.send(self).await?.ok()
+    }
+
+    fn serialize(&self) -> Result<String, SerdeJsonError>
+    where
+        Self: Serialize,
+    {
+        serde_json::to_string(self)
     }
 
     fn some(self) -> Option<Self> {

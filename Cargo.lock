@@ -589,6 +589,8 @@ dependencies = [
  "crossterm",
  "derive_more",
  "futures",
+ "http",
+ "itertools",
  "parking_lot",
  "poem",
  "poem-openapi",
@@ -596,11 +598,13 @@ dependencies = [
  "ratatui",
  "ropey",
  "serde",
+ "serde_json",
  "tokio",
  "tokio-tungstenite",
  "tracing",
  "tracing-subscriber",
  "ulid",
+ "uri",
  "url",
 ]
 
@@ -2143,6 +2147,12 @@ name = "unsafe-libyaml"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
+
+[[package]]
+name = "uri"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5c61fea9e6205d0d14c7e6efe252f15ed404da4cbdbe4ecd1de0a4d7241829f"
 
 [[package]]
 name = "url"

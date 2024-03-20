@@ -1,37 +1,37 @@
 use crate::{cli::ClientArgs, editor::editor::Config, error::Error, server::Server, utils::any::Any};
 use crossterm::{
     cursor::{Hide, Show},
-    event::{DisableMouseCapture, EnableMouseCapture, EventStream as CrosstermEventStream},
+    event::{DisableMouseCapture, EnableMouseCapture, EventStream},
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
     QueueableCommand,
 };
 use derive_more::From;
 use futures::StreamExt;
+use http::{HeaderValue, Uri};
 use std::{
     io::{StdoutLock, Write},
+    path::Path,
     sync::Mutex,
 };
-use tokio_tungstenite::tungstenite::Message;
-use url::Url;
+use tokio_tungstenite::tungstenite::{client::IntoClientRequest, handshake::client::Request, Message};
 
 #[derive(From)]
 pub struct Client {
     stdout: StdoutLock<'static>,
-    args: ClientArgs,
 }
 
 impl Client {
-    fn new(args: ClientArgs) -> Result<Self, Error> {
+    fn new(log_filepath: Option<&Path>) -> Result<Self, Error> {
         let stdout = std::io::stdout().lock();
-        let mut client = Self { stdout, args };
+        let mut client = Self { stdout };
 
-        client.on_init()?;
+        client.on_init(log_filepath)?;
 
         client.ok()
     }
 
-    fn init_tracing(&self) -> Result<(), Error> {
-        let Some(log_filepath) = self.args.log_filepath.as_ref() else {
+    fn init_tracing(log_filepath: Option<&Path>) -> Result<(), Error> {
+        let Some(log_filepath) = log_filepath else {
             return ().ok();
         };
         let writer = log_filepath.create()?.buf_writer();
@@ -43,8 +43,8 @@ impl Client {
         ().ok()
     }
 
-    fn on_init(&mut self) -> Result<(), Error> {
-        self.init_tracing()?;
+    fn on_init(&mut self, log_filepath: Option<&Path>) -> Result<(), Error> {
+        Self::init_tracing(log_filepath)?;
         crossterm::terminal::enable_raw_mode()?;
         self.stdout
             .queue(EnterAlternateScreen)?
@@ -67,19 +67,30 @@ impl Client {
         ().ok()
     }
 
-    fn config(client_args: &ClientArgs) -> Result<Config, Error> {
-        let size = crossterm::terminal::size()?.some();
+    fn config(client_args: &mut ClientArgs) -> Result<Config, Error> {
+        let size = crossterm::terminal::size()?;
+        let filepath = client_args.filepath.take();
 
-        Config { size }.ok()
+        Config { size, filepath }.ok()
+    }
+
+    fn request(mut client_args: ClientArgs) -> Result<Request, Error> {
+        let config = Self::config(&mut client_args)?;
+        let mut request = client_args.server_address.into_client_request()?;
+        let config_header = config.serialize()?;
+        let config_header = HeaderValue::from_str(&config_header)?;
+
+        request.headers_mut().insert(Server::CONFIG_HEADER_NAME, config_header);
+
+        request.ok()
     }
 
     pub async fn run(client_args: ClientArgs) -> Result<(), Error> {
-        let mut client = Client::new(client_args)?;
-        let mut crossterm_events = CrosstermEventStream::new();
-        let (web_socket, _response) = tokio_tungstenite::connect_async(&client.args.server_address).await?;
+        let mut client = Client::new(client_args.log_filepath.as_deref())?;
+        let mut events = EventStream::new();
+        let request = Self::request(client_args)?;
+        let (web_socket, _response) = tokio_tungstenite::connect_async(request).await?;
         let (mut sink, mut stream) = web_socket.split();
-
-        Self::config(&client.args)?.send_event_to(&mut sink).await?;
 
         let recv = async {
             while let Some(message_res) = stream.next().await {
@@ -93,10 +104,10 @@ impl Client {
             ().ok()
         };
         let send = async {
-            while let Some(crossterm_event_res) = crossterm_events.next().await {
+            while let Some(event_res) = events.next().await {
                 // TODO: figure out why this doesn't work
-                // - crossterm_event_res?.encode()?.into().send_to(&mut sink).await?;
-                crossterm_event_res?.send_event_to(&mut sink).await?;
+                // - event_res?.encode()?.into().send_to(&mut sink).await?;
+                event_res?.encode()?.convert::<Message>().send_to(&mut sink).await?;
             }
 
             ().ok()
@@ -105,7 +116,7 @@ impl Client {
         crate::utils::macros::select!(recv, send)
     }
 
-    pub fn default_server_address() -> Url {
+    pub fn default_server_address() -> Uri {
         std::format!(
             "ws://{host}:{port}",
             host = Server::DEFAULT_HOST,

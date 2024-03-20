@@ -2,25 +2,21 @@ use crate::{
     error::Error,
     utils::{any::Any, bytes::Bytes},
 };
-use crossterm::event::Event as CrosstermEvent;
-use derive_more::From;
-use ratatui::{backend::CrosstermBackend, Terminal as RatatuiTerminal};
+use crossterm::event::Event;
+use derive_more::Constructor;
+use itertools::Itertools;
+use ratatui::{backend::CrosstermBackend, widgets::Paragraph, Terminal as RatatuiTerminal};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use ulid::Ulid;
 
 type Terminal = RatatuiTerminal<CrosstermBackend<Bytes>>;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
-    pub size: Option<(u16, u16)>,
-}
-
-#[derive(Debug, Deserialize, From, Serialize)]
-pub enum Event {
-    CrosstermEvent(CrosstermEvent),
-    Config(Config),
+    pub size: (u16, u16),
+    pub filepath: Option<PathBuf>,
 }
 
 pub struct View {
@@ -29,24 +25,37 @@ pub struct View {
     bytes: Bytes,
 }
 
+#[derive(Constructor)]
 pub struct ClientState {
     view_id: Ulid,
+    config: Config,
 }
 
 #[derive(Default)]
 pub struct Editor {
     buffers: HashMap<Ulid, Rope>,
     views: HashMap<Ulid, View>,
-    clients: HashMap<Ulid, Option<ClientState>>,
+    clients: HashMap<Ulid, ClientState>,
 }
 
 impl Editor {
-    pub fn new_client(&mut self) -> Ulid {
+    pub fn new_client(&mut self, config: Config) -> Result<Ulid, Error> {
         let client_id = Ulid::new();
+        let view_id = Ulid::new();
+        let buffer_id = Ulid::new();
+        let client_state = ClientState::new(view_id, config);
+        let rope = if let Some(filepath) = &client_state.config.filepath {
+            filepath.rope()?
+        } else {
+            Rope::new()
+        };
+        let view = Self::new_view(buffer_id)?;
 
-        self.clients.insert(client_id, None);
+        self.buffers.insert(buffer_id, rope);
+        self.views.insert(view_id, view);
+        self.clients.insert(client_id, client_state);
 
-        client_id
+        client_id.ok()
     }
 
     fn new_view(buffer_id: Ulid) -> Result<View, Error> {
@@ -62,13 +71,25 @@ impl Editor {
         view.ok()
     }
 
-    pub fn render(&mut self, client_id: &Ulid) -> Option<Vec<u8>> {
-        let client_state = self.clients.get(client_id)?.as_ref()?;
-        let view = self.views.get_mut(&client_state.view_id)?;
+    pub fn render(&mut self, client_id: &Ulid) -> Result<Option<Vec<u8>>, Error> {
+        // TODO: what to do if client_id or view_id isn't found
+        let Some(client_state) = self.clients.get(client_id) else {
+            return None.ok();
+        };
+        let Some(view) = self.views.get_mut(&client_state.view_id) else {
+            return None.ok();
+        };
+        let Some(rope) = self.buffers.get(&view.buffer_id) else {
+            return None.ok();
+        };
+        let text = rope.lines().take(client_state.config.size.1 as usize).join("");
+        let paragraph = Paragraph::new(text);
 
-        view.terminal.draw(|frame| std::todo!());
+        view.terminal.draw(|frame| {
+            frame.render_widget(paragraph, frame.size());
+        })?;
 
-        view.bytes.take().some()
+        view.bytes.take().some().ok()
     }
 
     pub async fn feed(&self, client_id: &Ulid, event: Event) -> Result<bool, Error> {
