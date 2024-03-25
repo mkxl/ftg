@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ansi-parser = "0.8.0"
 clap = { version = "4.5.3", features = ["derive"] }
 crossterm = { version = "0.27.0", features = ["event-stream", "serde", "use-dev-tty"] }
 derive_more = "0.99.17"
@@ -22,9 +23,11 @@ tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
 tokio-tungstenite = "0.21.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["json"] }
+tryvial = "0.2.0"
 ulid = "1.1.2"
 uri = "0.4.0"
 url = "2.5.0"
 
 [lints.clippy]
 pedantic = "deny"
+unit_arg = "allow"

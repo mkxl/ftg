@@ -1,6 +1,6 @@
 use crate::{
     cli::ServerArgs,
-    editor::editor::{Config, Editor},
+    editor::{client_state::Config, editor::Editor},
     error::Error,
     utils::{any::Any, lock::Lock, web_socket_upgraded::WebSocketUpgraded},
 };
@@ -52,6 +52,9 @@ impl Server {
         tracing_subscriber::fmt().json().init();
     }
 
+    // TODO: consider instead of having recv/send loops, just doing an either situation with events/web_socket_stream
+    // so that i can .close().await properly from the recv loop; might mean i can get rid of the lock on editor (
+    // actually not sure if the tokio mutex is still needed - don't know if i still need to await across locks)
     async fn run(config: Config, editor_recv: Lock<Editor>, web_socket_stream: WebSocketStream) -> Result<(), Error> {
         let client_id = editor_recv.get().await.new_client(config)?;
         let (mut sink, mut stream) = web_socket_stream.split();
@@ -74,6 +77,9 @@ impl Server {
         };
         let send = async {
             while let Some(bytes) = editor_send.get().await.render(&client_id)? {
+                // TODO: hide
+                tracing::info!(sending_ansi_sequence = ?bytes.ansi());
+
                 bytes.binary_message().send_to(&mut sink).await?;
                 interval.tick().await;
             }

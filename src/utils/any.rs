@@ -1,7 +1,9 @@
 use crate::utils::lock::Lock;
+use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
 use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
+use ratatui::layout::Rect;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
@@ -13,6 +15,16 @@ use std::{
 };
 
 pub trait Any: Sized {
+    fn ansi(&self) -> Option<Vec<Output>>
+    where
+        Self: AsRef<[u8]>,
+    {
+        let string = std::str::from_utf8(self.as_ref()).ok()?;
+        let outputs = string.ansi_parse().collect::<Vec<_>>();
+
+        outputs.some()
+    }
+
     fn binary_message(self) -> PoemMessage
     where
         Self: Into<Vec<u8>>,
@@ -89,6 +101,15 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         File::open(self)
+    }
+
+    fn rect(self) -> Rect
+    where
+        Self: Into<(u16, u16)>,
+    {
+        let (width, height) = self.into();
+
+        Rect::new(0, 0, width, height)
     }
 
     fn rope(&self) -> Result<Rope, IoError>
