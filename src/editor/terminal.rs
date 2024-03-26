@@ -3,7 +3,7 @@ use crate::{
     utils::{any::Any, bytes::Bytes},
 };
 use ratatui::{
-    backend::{Backend, CrosstermBackend},
+    backend::{Backend, ClearType, CrosstermBackend},
     buffer::Buffer,
     layout::Rect,
     widgets::Widget,
@@ -37,26 +37,37 @@ impl Terminal {
 
     pub fn finish(&mut self) -> Result<Vec<u8>, Error> {
         // NOTE:
-        // - buffer_prev: what has already been rendered
-        // - buffer_curr: what is to be rendered
+        // - buffer_prev: what has been rendered already
+        // - buffer_curr: what is to be rendered imminently
         let updates = self.buffer_prev.diff(&self.buffer_curr);
 
+        // NOTE: crossterm backend will render some unneeded (imo) bytes even if updates is empty
         if !updates.is_empty() {
             self.backend.draw(updates.into_iter())?;
         }
 
         // NOTE:
-        // - after drawing the diff, (1) swap buffer_prev and buffer_curr and (2) reset what is to
-        //   to be rendered (ie buffer_curr)
+        // after drawing the diff, (1) swap buffer_prev and buffer_curr and (2) reset what is to to be rendered
+        // imminently (ie buffer_curr)
         std::mem::swap(&mut self.buffer_prev, &mut self.buffer_curr);
         self.buffer_curr.reset();
 
         self.bytes.take().ok()
     }
 
-    pub fn resize(&mut self, area: Rect) {
+    fn clear(&mut self) -> Result<(), Error> {
+        self.backend.clear_region(ClearType::All)?;
+        self.buffer_prev.reset();
+
+        ().ok()
+    }
+
+    pub fn resize(&mut self, area: Rect) -> Result<(), Error> {
         self.buffer_curr.resize(area);
         self.buffer_prev.resize(area);
+        self.clear()?;
+
+        ().ok()
     }
 
     pub fn area(&self) -> Rect {

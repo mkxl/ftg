@@ -20,4 +20,8 @@ impl Buffer {
     pub fn lines(&self, begin: usize, count: usize) -> String {
         self.rope.get_lines_at(begin).into_iter().flatten().take(count).join("")
     }
+
+    pub fn len_lines(&self) -> usize {
+        self.rope.len_lines()
+    }
 }

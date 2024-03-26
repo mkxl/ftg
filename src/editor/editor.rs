@@ -56,9 +56,7 @@ impl Editor {
     }
 
     pub async fn feed(&mut self, client_id: &Ulid, event: Event) -> Result<bool, Error> {
-        tracing::info!(?event);
-
-        let Some((_client_state, view, _buffer)) = self.get_mut(client_id) else {
+        let Some((_client_state, view, buffer)) = self.get_mut(client_id) else {
             return true.ok();
         };
 
@@ -66,12 +64,12 @@ impl Editor {
             Event::Key(KeyEvent { code: KeyCode::Up, .. }) => view.move_up(),
             Event::Key(KeyEvent {
                 code: KeyCode::Down, ..
-            }) => view.move_down(),
+            }) => view.move_down(buffer),
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),
                 ..
             }) => return true.ok(),
-            Event::Resize(width, height) => view.resize(width, height),
+            Event::Resize(width, height) => view.resize(width, height)?,
             _ => {}
         }
 

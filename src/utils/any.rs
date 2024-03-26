@@ -137,6 +137,16 @@ pub trait Any: Sized {
     fn with<T>(&self, value: T) -> T {
         value
     }
+
+    fn write_all_and_flush(&mut self, bytes: &[u8]) -> Result<(), IoError>
+    where
+        Self: Write,
+    {
+        self.write_all(bytes)?;
+        self.flush()?;
+
+        ().ok()
+    }
 }
 
 impl<T> Any for T {}

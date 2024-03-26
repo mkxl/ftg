@@ -90,7 +90,7 @@ impl Client {
         let recv = async {
             while let Some(message_res) = stream.next().await {
                 match message_res? {
-                    Message::Binary(bytes) => client.stdout.write_all(&bytes)?,
+                    Message::Binary(bytes) => client.stdout.write_all_and_flush(&bytes)?,
                     Message::Close(_close) => std::todo!(),
                     ignored_message => tracing::warn!(?ignored_message),
                 }
