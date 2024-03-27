@@ -54,41 +54,41 @@ impl Server {
         tracing_subscriber::fmt().json().init();
     }
 
-    // async fn run2(config: Config, editor: Arc<Mutex<Editor>>, web_socket_stream: WebSocketStream) -> Result<(), Error> {
-    //     let client_id = editor.lock().new_client(config)?;
-    //     let interval = tokio::time::interval(Self::INTERVAL_DURATION);
-    //     let interval_stream = IntervalStream::new(interval);
-    //     let left = Either::Left(interval_stream);
-    //     let right = Either::Right(web_socket_stream);
-    //     let joint: () = futures::stream::select(left, right);
+    async fn run2(config: Config, editor: Arc<Mutex<Editor>>, web_socket_stream: WebSocketStream) -> Result<(), Error> {
+        let client_id = editor.lock().new_client(config)?;
+        let interval = tokio::time::interval(Self::INTERVAL_DURATION);
+        let interval_stream = IntervalStream::new(interval);
+        let left = Either::<IntervalStream, WebSocketStream>::Left(interval_stream);
+        let right = Either::<IntervalStream, WebSocketStream>::Right(web_socket_stream);
+        let joint = futures::stream::select(left, right);
 
-    //     while let Some(either) = joint.next().await {
-    //         match either {
-    //             Either::Left(_instant) => {
-    //                 let Some(bytes) = editor.lock().render(&client_id)? else {
-    //                     break;
-    //                 };
+        while let Some(either) = joint.next().await {
+            match either {
+                Either::Left(_instant) => {
+                    let Some(bytes) = editor.lock().render(&client_id)? else {
+                        break;
+                    };
 
-    //                 if !bytes.is_empty() {
-    //                     bytes.binary_message().send_to(&mut web_socket_stream).await?;
-    //                 }
-    //             }
-    //             Either::Right(message_res) => {
-    //                 let end = match message_res? {
-    //                     Message::Binary(bytes) => editor.lock().feed(&client_id, bytes.decode()?).await?,
-    //                     Message::Close(_close) => std::todo!(),
-    //                     ignored_message => tracing::warn!(?ignored_message).with(false),
-    //                 };
+                    if !bytes.is_empty() {
+                        bytes.binary_message().send_to(&mut web_socket_stream).await?;
+                    }
+                }
+                Either::Right(message_res) => {
+                    let end = match message_res? {
+                        Message::Binary(bytes) => editor.lock().feed(&client_id, bytes.decode()?).await?,
+                        Message::Close(_close) => std::todo!(),
+                        ignored_message => tracing::warn!(?ignored_message).with(false),
+                    };
 
-    //                 if end {
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //     }
+                    if end {
+                        break;
+                    }
+                }
+            }
+        }
 
-    //     ().ok()
-    // }
+        ().ok()
+    }
 
     // TODO: consider instead of having recv/send loops, just doing an either situation with events/web_socket_stream
     // so that i can .close().await properly from the recv loop; might mean i can get rid of the lock on editor (
@@ -119,7 +119,7 @@ impl Server {
                     bytes.binary_message().send_to(&mut sink).await?;
                 }
 
-                interval.tick().await;
+                // interval.tick().await;
             }
 
             ().ok()

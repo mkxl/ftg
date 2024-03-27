@@ -7,7 +7,7 @@ use crate::{
     error::Error,
     utils::any::Any,
 };
-use crossterm::event::{Event, KeyCode, KeyEvent};
+use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
 use std::collections::HashMap;
 use ulid::Ulid;
 
@@ -22,16 +22,15 @@ impl Editor {
     pub fn new_client(&mut self, config: Config) -> Result<Ulid, Error> {
         let client_id = Ulid::new();
         let view_id = Ulid::new();
-        let buffer_id = Ulid::new();
         let client_state = ClientState::new(view_id, config);
         let buffer = if let Some(filepath) = &client_state.config().filepath {
             Buffer::from_filepath(filepath)?
         } else {
             Buffer::default()
         };
-        let view = View::new(buffer_id, client_state.config().size.rect())?;
+        let view = View::new(buffer.id(), client_state.config().size.rect())?;
 
-        self.buffers.insert(buffer_id, buffer);
+        self.buffers.insert(buffer.id(), buffer);
         self.views.insert(view_id, view);
         self.clients.insert(client_id, client_state);
 
@@ -56,14 +55,24 @@ impl Editor {
     }
 
     pub async fn feed(&mut self, client_id: &Ulid, event: Event) -> Result<bool, Error> {
+        tracing::info!(?event);
+
         let Some((_client_state, view, buffer)) = self.get_mut(client_id) else {
             return true.ok();
         };
 
         match event {
-            Event::Key(KeyEvent { code: KeyCode::Up, .. }) => view.move_up(),
+            Event::Key(KeyEvent { code: KeyCode::Up, .. })
+            | Event::Mouse(MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                ..
+            }) => view.move_up(),
             Event::Key(KeyEvent {
                 code: KeyCode::Down, ..
+            })
+            | Event::Mouse(MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                ..
             }) => view.move_down(buffer),
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),
