@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use ulid::Ulid;
 
 pub trait Identifiable {
@@ -10,8 +10,15 @@ pub struct Container<T> {
 }
 
 impl<T: Identifiable> Container<T> {
-    pub fn insert(&mut self, value: T) {
-        self.values.insert(value.id(), value);
+    pub fn insert(&mut self, value: T) -> &mut T {
+        match self.values.entry(value.id()) {
+            Entry::Occupied(mut occupied_entry) => {
+                occupied_entry.insert(value);
+
+                occupied_entry.into_mut()
+            }
+            Entry::Vacant(vacant_entry) => vacant_entry.insert(value),
+        }
     }
 
     pub fn get_mut(&mut self, id: &Ulid) -> Option<&mut T> {

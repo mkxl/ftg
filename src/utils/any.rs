@@ -10,8 +10,10 @@ use std::{
     fmt::Display,
     fs::File,
     io::{BufReader, BufWriter, Error as IoError, Read, Write},
+    os::unix::fs::MetadataExt,
     path::Path,
 };
+use ulid::Ulid;
 
 pub trait Any: Sized {
     fn ansi(&self) -> Option<Vec<Output>>
@@ -85,6 +87,18 @@ pub trait Any: Sized {
             Ok(ok) => ok.some(),
             Err(error) => tracing::error!(%error).with(None),
         }
+    }
+
+    // NOTE: [https://stackoverflow.com/a/41367094]
+    fn immutable(&mut self) -> &Self {
+        &*self
+    }
+
+    fn inode_id(self) -> Result<Ulid, IoError>
+    where
+        Self: AsRef<Path>,
+    {
+        self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
     }
 
     fn ok<E>(self) -> Result<Self, E> {

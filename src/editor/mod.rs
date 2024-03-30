@@ -16,6 +16,7 @@ use crate::{
     },
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
+use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
 pub struct GetMut<'a> {
@@ -32,21 +33,28 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new_window(&mut self, args: &WindowArgs) -> Result<Ulid, Error> {
-        let buffer = if let Some(filepath) = args.filepath.as_deref() {
-            Buffer::from_filepath(filepath)?
-        } else {
-            Buffer::default()
-        };
-        let view = View::new(buffer.id(), args.size.rect())?;
+    pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
+        let buffer_id = self.insert_buffer(args.filepath.as_deref())?;
+        let view = View::new(buffer_id, args)?;
         let window = Window::new(&view);
         let window_id = window.id();
 
-        self.buffers.insert(buffer);
         self.views.insert(view);
         self.windows.insert(window);
 
         window_id.ok()
+    }
+
+    fn insert_buffer(&mut self, filepath: Option<&Path>) -> Result<Ulid, IoError> {
+        let Some(filepath) = filepath else {
+            return self.buffers.insert(Buffer::default()).id().ok();
+        };
+
+        if let Some(buffer) = self.buffers.get_mut(&filepath.inode_id()?) {
+            buffer.id().ok()
+        } else {
+            self.buffers.insert(Buffer::from_filepath(filepath)?).id().ok()
+        }
     }
 
     fn get_mut(&mut self, window_id: &Ulid) -> GetMut {
@@ -79,6 +87,9 @@ impl Editor {
     }
 
     pub fn feed(&mut self, window_id: &Ulid, event: &Event) -> Result<bool, Error> {
+        // TODO: remove; currently log for debugging purposes for when the client hangs
+        tracing::info!(feed_event = ?event);
+
         let GetMut {
             view: Some(view),
             buffer: Some(buffer),

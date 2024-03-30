@@ -1,9 +1,13 @@
 use crate::{
-    editor::{buffer::Buffer, terminal::Terminal, window::Window},
+    editor::{
+        buffer::Buffer,
+        terminal::Terminal,
+        window::{Args as WindowArgs, Window},
+    },
     error::Error,
     utils::{any::Any, container::Identifiable},
 };
-use ratatui::{layout::Rect, widgets::Paragraph};
+use ratatui::{text::Line, widgets::Paragraph};
 use ulid::Ulid;
 
 #[derive(Debug, Default)]
@@ -17,18 +21,22 @@ pub struct View {
     buffer_id: Ulid,
     terminal: Terminal,
     position: Position,
+    args: WindowArgs,
 }
 
 impl View {
-    pub fn new(buffer_id: Ulid, area: Rect) -> Result<Self, Error> {
+    const DEFAULT_TITLE: &'static str = "Untitled";
+
+    pub fn new(buffer_id: Ulid, args: WindowArgs) -> Result<Self, Error> {
         let id = Ulid::new();
-        let terminal = Terminal::new(area);
+        let terminal = Terminal::new(args.size.rect());
         let position = Position::default();
         let view = Self {
             id,
             buffer_id,
             terminal,
             position,
+            args,
         };
 
         view.ok()
@@ -49,8 +57,19 @@ impl View {
     }
 
     pub fn render(&mut self, _window: &Window, buffer: &Buffer) -> Result<Vec<u8>, Error> {
-        let paragraph = buffer.lines(self.position.y, self.terminal.area().height as usize);
-        let paragraph = Paragraph::new(paragraph);
+        let title = if let Some(filepath) = &self.args.filepath {
+            Line::raw(filepath.display().to_string())
+        } else {
+            Line::raw(Self::DEFAULT_TITLE)
+        };
+        let count = self.terminal.area().height.saturating_sub(1).convert::<usize>();
+        // TODO: replace `.map(|rope_slice| rope_slice.to_string())` with non closure function
+        let lines = buffer
+            .lines(self.position.y, count)
+            .map(|rope_slice| rope_slice.to_string())
+            .map(Line::raw);
+        let lines = Some(title).into_iter().chain(lines).collect::<Vec<_>>();
+        let paragraph = Paragraph::new(lines);
 
         self.terminal.render_widget(paragraph, self.terminal.area());
 

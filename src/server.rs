@@ -52,16 +52,16 @@ impl Server {
     }
 
     async fn run(
-        window_args: &WindowArgs,
+        window_args: WindowArgs,
         editor: Arc<Mutex<Editor>>,
         web_socket_stream: WebSocketStream,
     ) -> Result<(), Error> {
-        let ready = std::future::ready(());
         let window_id = editor.lock().new_window(window_args)?;
         let (mut web_socket_sink, mut web_socket_stream) = web_socket_stream.split();
 
         loop {
-            // NOTE: can't use else branch bc tokio::select! waits for first future to complete
+            // NOTE: can't use else branch bc tokio::select! waits for the first future to complete and checks if the
+            // branch is valid before defaulting to the else branch
             tokio::select! {
                 message_res_opt = web_socket_stream.next() => {
                     let Some(message_res) = message_res_opt else { break; };
@@ -75,7 +75,7 @@ impl Server {
                         break;
                     }
                 }
-                () = ready.clone() => {
+                () = std::future::ready(()) => {
                     let Some(bytes) = editor.lock().render(&window_id)? else { std::todo!(); };
 
                     if !bytes.is_empty() {
@@ -104,7 +104,7 @@ impl Server {
         let window_args = window_args.deserialize().map_err(Self::deserialization_poem_error)?;
         let editor = self.editor.clone();
         let web_socket_upgraded = web_socket.on_upgrade(|web_socket_stream| async move {
-            Self::run(&window_args, editor, web_socket_stream).await.error();
+            Self::run(window_args, editor, web_socket_stream).await.error();
         });
 
         // NOTE:

@@ -1,11 +1,7 @@
-use crate::{
-    error::Error,
-    utils::{any::Any, container::Identifiable},
-};
+use crate::utils::{any::Any, container::Identifiable};
 use derive_more::Constructor;
-use itertools::Itertools;
-use ropey::Rope;
-use std::{os::unix::fs::MetadataExt, path::Path};
+use ropey::{Rope, RopeSlice};
+use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
 #[derive(Constructor)]
@@ -15,16 +11,12 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn from_filepath(filepath: &Path) -> Result<Self, Error> {
-        let id = filepath.metadata()?.ino().convert::<u128>().into();
-        let rope = filepath.rope()?;
-        let buffer = Self::new(id, rope);
-
-        buffer.ok()
+    pub fn from_filepath(filepath: &Path) -> Result<Self, IoError> {
+        Self::new(filepath.inode_id()?, filepath.rope()?).ok()
     }
 
-    pub fn lines(&self, begin: usize, count: usize) -> String {
-        self.rope.get_lines_at(begin).into_iter().flatten().take(count).join("")
+    pub fn lines(&self, begin: usize, count: usize) -> impl '_ + Iterator<Item = RopeSlice> {
+        self.rope.get_lines_at(begin).into_iter().flatten().take(count)
     }
 
     pub fn len_lines(&self) -> usize {
