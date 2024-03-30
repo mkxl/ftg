@@ -31,4 +31,5 @@ url = "2.5.0"
 
 [lints.clippy]
 pedantic = "deny"
+module_name_repetitions = "allow"
 unit_arg = "allow"

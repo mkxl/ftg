@@ -1,4 +1,3 @@
-use crate::utils::lock::Lock;
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
 use poem::web::websocket::Message as PoemMessage;
@@ -86,10 +85,6 @@ pub trait Any: Sized {
             Ok(ok) => ok.some(),
             Err(error) => tracing::error!(%error).with(None),
         }
-    }
-
-    fn locked(self) -> Lock<Self> {
-        Lock::new(self)
     }
 
     fn ok<E>(self) -> Result<Self, E> {

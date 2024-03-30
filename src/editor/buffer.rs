@@ -1,4 +1,7 @@
-use crate::{error::Error, utils::any::Any};
+use crate::{
+    error::Error,
+    utils::{any::Any, container::Identifiable},
+};
 use derive_more::Constructor;
 use itertools::Itertools;
 use ropey::Rope;
@@ -20,10 +23,6 @@ impl Buffer {
         buffer.ok()
     }
 
-    pub fn id(&self) -> Ulid {
-        self.id
-    }
-
     pub fn lines(&self, begin: usize, count: usize) -> String {
         self.rope.get_lines_at(begin).into_iter().flatten().take(count).join("")
     }
@@ -36,5 +35,11 @@ impl Buffer {
 impl Default for Buffer {
     fn default() -> Self {
         Self::new(Ulid::new(), Rope::new())
+    }
+}
+
+impl Identifiable for Buffer {
+    fn id(&self) -> Ulid {
+        self.id
     }
 }

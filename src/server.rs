@@ -1,11 +1,11 @@
 use crate::{
     cli::ServerArgs,
-    editor::{client_state::Config, editor::Editor},
+    editor::{window::Args as WindowArgs, Editor},
     error::Error,
-    utils::{any::Any, lock::Lock, web_socket_upgraded::WebSocketUpgraded},
+    utils::{any::Any, web_socket_upgraded::WebSocketUpgraded},
 };
 use derive_more::Constructor;
-use futures::{future::Either, StreamExt};
+use futures::StreamExt;
 use parking_lot::Mutex;
 use poem::{
     http::StatusCode,
@@ -16,12 +16,11 @@ use poem::{
 };
 use poem_openapi::{param::Header, OpenApi, OpenApiService};
 use serde_json::Error as SerdeJsonError;
-use std::{net::Ipv4Addr, sync::Arc, time::Duration};
-use tokio_stream::wrappers::IntervalStream;
+use std::{net::Ipv4Addr, sync::Arc};
 
 #[derive(Constructor)]
 pub struct Server {
-    editor: Lock<Editor>,
+    editor: Arc<Mutex<Editor>>,
 }
 
 #[OpenApi]
@@ -29,18 +28,16 @@ impl Server {
     const API_PATH: &'static str = "/";
     const API_TITLE: &'static str = std::env!("CARGO_PKG_NAME");
     const API_VERSION: &'static str = std::env!("CARGO_PKG_VERSION");
-    const INTERVAL_DURATION: Duration = Duration::from_millis(50);
     // TODO: resolve
-    // pub const CONFIG_HEADER_NAME: &'static str = "x-ftg-config";
-    pub const CONFIG_HEADER_NAME: &'static str = "config";
+    // pub const CONFIG_HEADER_NAME: &'static str = "x-ftg-window-args";
+    pub const CONFIG_HEADER_NAME: &'static str = "window_args";
     pub const DEFAULT_HOST: Ipv4Addr = Ipv4Addr::UNSPECIFIED;
     pub const DEFAULT_PORT: u16 = 8080;
 
     pub async fn serve(server_args: ServerArgs) -> Result<(), Error> {
         Self::init_tracing();
 
-        let editor = Editor::default().locked();
-        let server = Self::new(editor);
+        let server = Self::new(Arc::default());
         let address = (server_args.host, server_args.port);
         let tcp_listener = TcpListener::bind(address);
         let poem_server = PoemServer::new(tcp_listener);
@@ -54,28 +51,22 @@ impl Server {
         tracing_subscriber::fmt().json().init();
     }
 
-    async fn run2(config: Config, editor: Arc<Mutex<Editor>>, web_socket_stream: WebSocketStream) -> Result<(), Error> {
-        let client_id = editor.lock().new_client(config)?;
-        let interval = tokio::time::interval(Self::INTERVAL_DURATION);
-        let interval_stream = IntervalStream::new(interval);
-        let left = Either::<IntervalStream, WebSocketStream>::Left(interval_stream);
-        let right = Either::<IntervalStream, WebSocketStream>::Right(web_socket_stream);
-        let joint = futures::stream::select(left, right);
+    async fn run(
+        window_args: &WindowArgs,
+        editor: Arc<Mutex<Editor>>,
+        web_socket_stream: WebSocketStream,
+    ) -> Result<(), Error> {
+        let ready = std::future::ready(());
+        let window_id = editor.lock().new_window(window_args)?;
+        let (mut web_socket_sink, mut web_socket_stream) = web_socket_stream.split();
 
-        while let Some(either) = joint.next().await {
-            match either {
-                Either::Left(_instant) => {
-                    let Some(bytes) = editor.lock().render(&client_id)? else {
-                        break;
-                    };
-
-                    if !bytes.is_empty() {
-                        bytes.binary_message().send_to(&mut web_socket_stream).await?;
-                    }
-                }
-                Either::Right(message_res) => {
+        loop {
+            // NOTE: can't use else branch bc tokio::select! waits for first future to complete
+            tokio::select! {
+                message_res_opt = web_socket_stream.next() => {
+                    let Some(message_res) = message_res_opt else { break; };
                     let end = match message_res? {
-                        Message::Binary(bytes) => editor.lock().feed(&client_id, bytes.decode()?).await?,
+                        Message::Binary(bytes) => editor.lock().feed(&window_id, &bytes.decode()?)?,
                         Message::Close(_close) => std::todo!(),
                         ignored_message => tracing::warn!(?ignored_message).with(false),
                     };
@@ -84,48 +75,17 @@ impl Server {
                         break;
                     }
                 }
+                () = ready.clone() => {
+                    let Some(bytes) = editor.lock().render(&window_id)? else { std::todo!(); };
+
+                    if !bytes.is_empty() {
+                        bytes.binary_message().send_to(&mut web_socket_sink).await?;
+                    }
+                }
             }
         }
 
         ().ok()
-    }
-
-    // TODO: consider instead of having recv/send loops, just doing an either situation with events/web_socket_stream
-    // so that i can .close().await properly from the recv loop; might mean i can get rid of the lock on editor (
-    // actually not sure if the tokio mutex is still needed - don't know if i still need to await across locks)
-    async fn run(config: Config, editor_recv: Lock<Editor>, web_socket_stream: WebSocketStream) -> Result<(), Error> {
-        let client_id = editor_recv.get().await.new_client(config)?;
-        let (mut sink, mut stream) = web_socket_stream.split();
-        let mut interval = tokio::time::interval(Self::INTERVAL_DURATION);
-        let editor_send = editor_recv.clone();
-        let recv = async {
-            while let Some(message_res) = stream.next().await {
-                let end = match message_res? {
-                    Message::Binary(bytes) => editor_recv.get().await.feed(&client_id, bytes.decode()?).await?,
-                    Message::Close(_close) => std::todo!(),
-                    ignored_message => tracing::warn!(?ignored_message).with(false),
-                };
-
-                if end {
-                    break;
-                }
-            }
-
-            ().ok()
-        };
-        let send = async {
-            while let Some(bytes) = editor_send.get().await.render(&client_id)? {
-                if !bytes.is_empty() {
-                    bytes.binary_message().send_to(&mut sink).await?;
-                }
-
-                // interval.tick().await;
-            }
-
-            ().ok()
-        };
-
-        crate::utils::macros::select!(recv, send)
     }
 
     #[allow(clippy::needless_pass_by_value)]
@@ -139,12 +99,12 @@ impl Server {
     async fn root(
         &self,
         web_socket: WebSocket,
-        Header(config): Header<String>,
+        Header(window_args): Header<String>,
     ) -> Result<WebSocketUpgraded, PoemError> {
-        let config = config.deserialize().map_err(Self::deserialization_poem_error)?;
+        let window_args = window_args.deserialize().map_err(Self::deserialization_poem_error)?;
         let editor = self.editor.clone();
         let web_socket_upgraded = web_socket.on_upgrade(|web_socket_stream| async move {
-            Self::run(config, editor, web_socket_stream).await.error();
+            Self::run(&window_args, editor, web_socket_stream).await.error();
         });
 
         // NOTE:

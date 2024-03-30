@@ -1,7 +1,7 @@
 use crate::{
-    editor::{buffer::Buffer, client_state::ClientState, terminal::Terminal},
+    editor::{buffer::Buffer, terminal::Terminal, window::Window},
     error::Error,
-    utils::any::Any,
+    utils::{any::Any, container::Identifiable},
 };
 use ratatui::{layout::Rect, widgets::Paragraph};
 use ulid::Ulid;
@@ -13,6 +13,7 @@ struct Position {
 }
 
 pub struct View {
+    id: Ulid,
     buffer_id: Ulid,
     terminal: Terminal,
     position: Position,
@@ -20,9 +21,11 @@ pub struct View {
 
 impl View {
     pub fn new(buffer_id: Ulid, area: Rect) -> Result<Self, Error> {
+        let id = Ulid::new();
         let terminal = Terminal::new(area);
         let position = Position::default();
         let view = Self {
+            id,
             buffer_id,
             terminal,
             position,
@@ -45,7 +48,7 @@ impl View {
         self.position.y = self.position.y.saturating_sub(1);
     }
 
-    pub fn render(&mut self, client_state: &ClientState, buffer: &Buffer) -> Result<Vec<u8>, Error> {
+    pub fn render(&mut self, _window: &Window, buffer: &Buffer) -> Result<Vec<u8>, Error> {
         let paragraph = buffer.lines(self.position.y, self.terminal.area().height as usize);
         let paragraph = Paragraph::new(paragraph);
 
@@ -56,5 +59,11 @@ impl View {
 
     pub fn resize(&mut self, width: u16, height: u16) -> Result<(), Error> {
         self.terminal.resize((width, height).rect())
+    }
+}
+
+impl Identifiable for View {
+    fn id(&self) -> Ulid {
+        self.id
     }
 }

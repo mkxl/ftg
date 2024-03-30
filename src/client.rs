@@ -1,4 +1,4 @@
-use crate::{cli::ClientArgs, editor::client_state::Config, error::Error, server::Server, utils::any::Any};
+use crate::{cli::ClientArgs, editor::window::Args as WindowArgs, error::Error, server::Server, utils::any::Any};
 use crossterm::{
     cursor::{Hide, Show},
     event::{DisableMouseCapture, EnableMouseCapture, EventStream},
@@ -48,7 +48,7 @@ impl Client {
         crossterm::terminal::enable_raw_mode()?;
         self.stdout
             .queue(EnterAlternateScreen)?
-            .queue(EnableMouseCapture)?
+            // .queue(EnableMouseCapture)?
             .queue(Hide)?
             .queue(Clear(ClearType::All))?
             .flush()?;
@@ -60,25 +60,25 @@ impl Client {
         crossterm::terminal::disable_raw_mode()?;
         self.stdout
             .queue(LeaveAlternateScreen)?
-            .queue(DisableMouseCapture)?
+            // .queue(DisableMouseCapture)?
             .queue(Show)?
             .flush()?;
 
         ().ok()
     }
 
-    fn config(client_args: &mut ClientArgs) -> Result<Config, Error> {
+    fn window_args(client_args: &mut ClientArgs) -> Result<WindowArgs, Error> {
         let size = crossterm::terminal::size()?;
         let filepath = client_args.filepath.take();
-        let config = Config { size, filepath };
+        let window_args = WindowArgs { size, filepath };
 
-        config.ok()
+        window_args.ok()
     }
 
     fn request(mut client_args: ClientArgs) -> Result<Request, Error> {
-        let config = Self::config(&mut client_args)?;
+        let window_args = Self::window_args(&mut client_args)?;
         let mut request = client_args.server_address.into_client_request()?;
-        let config_header = config.serialize()?;
+        let config_header = window_args.serialize()?;
         let config_header = HeaderValue::from_str(&config_header)?;
 
         request.headers_mut().insert(Server::CONFIG_HEADER_NAME, config_header);
