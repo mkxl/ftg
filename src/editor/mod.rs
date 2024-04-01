@@ -34,7 +34,7 @@ pub struct Editor {
 
 impl Editor {
     pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
-        let buffer_id = self.insert_buffer(args.filepath.as_deref())?;
+        let buffer_id = self.buffer(args.filepath.as_deref())?;
         let view = View::new(buffer_id, args)?;
         let window = Window::new(&view);
         let window_id = window.id();
@@ -45,7 +45,7 @@ impl Editor {
         window_id.ok()
     }
 
-    fn insert_buffer(&mut self, filepath: Option<&Path>) -> Result<Ulid, IoError> {
+    fn buffer(&mut self, filepath: Option<&Path>) -> Result<Ulid, IoError> {
         let Some(filepath) = filepath else {
             return self.buffers.insert(Buffer::default()).id().ok();
         };
@@ -112,6 +112,20 @@ impl Editor {
                 kind: MouseEventKind::ScrollDown,
                 ..
             }) => view.move_down(buffer),
+            Event::Key(KeyEvent {
+                code: KeyCode::Left, ..
+            })
+            | Event::Mouse(MouseEvent {
+                kind: MouseEventKind::ScrollLeft,
+                ..
+            }) => view.move_left(),
+            Event::Key(KeyEvent {
+                code: KeyCode::Right, ..
+            })
+            | Event::Mouse(MouseEvent {
+                kind: MouseEventKind::ScrollRight,
+                ..
+            }) => view.move_right(),
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),
                 ..

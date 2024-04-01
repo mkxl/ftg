@@ -29,8 +29,8 @@ impl Server {
     const API_TITLE: &'static str = std::env!("CARGO_PKG_NAME");
     const API_VERSION: &'static str = std::env!("CARGO_PKG_VERSION");
     // TODO: resolve
-    // pub const CONFIG_HEADER_NAME: &'static str = "x-ftg-window-args";
-    pub const CONFIG_HEADER_NAME: &'static str = "window_args";
+    // pub const WINDOW_ARGS_HEADER_NAME: &'static str = "x-ftg-window-args";
+    pub const WINDOW_ARGS_HEADER_NAME: &'static str = "window_args";
     pub const DEFAULT_HOST: Ipv4Addr = Ipv4Addr::UNSPECIFIED;
     pub const DEFAULT_PORT: u16 = 8080;
 
@@ -61,7 +61,7 @@ impl Server {
 
         loop {
             // NOTE: can't use else branch bc tokio::select! waits for the first future to complete and checks if the
-            // branch is valid before defaulting to the else branch
+            // branch is valid before falling back to the else branch
             tokio::select! {
                 message_res_opt = web_socket_stream.next() => {
                     let Some(message_res) = message_res_opt else { break; };

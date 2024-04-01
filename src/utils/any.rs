@@ -128,6 +128,20 @@ pub trait Any: Sized {
         Rope::from_reader(self.open()?.buf_reader())
     }
 
+    fn saturating_sub(self, dx: u16, dy: u16) -> Rect
+    where
+        Self: Into<Rect>,
+    {
+        let Rect { x, y, width, height } = self.into();
+
+        Rect {
+            x,
+            y,
+            width: width.saturating_sub(dx),
+            height: height.saturating_sub(dy),
+        }
+    }
+
     async fn send_to<S: Unpin + Sink<Self>>(self, mut sink: S) -> Result<(), S::Error> {
         sink.send(self).await?.ok()
     }

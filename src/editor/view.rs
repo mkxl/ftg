@@ -5,16 +5,10 @@ use crate::{
         window::{Args as WindowArgs, Window},
     },
     error::Error,
-    utils::{any::Any, container::Identifiable},
+    utils::{any::Any, container::Identifiable, position::Position},
 };
-use ratatui::{text::Line, widgets::Paragraph};
+use ratatui::{style::Stylize, text::Line, widgets::Paragraph};
 use ulid::Ulid;
-
-#[derive(Debug, Default)]
-struct Position {
-    x: usize,
-    y: usize,
-}
 
 pub struct View {
     id: Ulid,
@@ -30,7 +24,7 @@ impl View {
     pub fn new(buffer_id: Ulid, args: WindowArgs) -> Result<Self, Error> {
         let id = Ulid::new();
         let terminal = Terminal::new(args.size.rect());
-        let position = Position::default();
+        let position = Position::zero();
         let view = Self {
             id,
             buffer_id,
@@ -40,6 +34,10 @@ impl View {
         };
 
         view.ok()
+    }
+
+    pub fn id(&self) -> Ulid {
+        self.id
     }
 
     pub fn buffer_id(&self) -> Ulid {
@@ -56,18 +54,25 @@ impl View {
         self.position.y = self.position.y.saturating_sub(1);
     }
 
+    pub fn move_left(&mut self) {
+        self.position.x = self.position.x.saturating_sub(1);
+    }
+
+    // TODO: need to find max value (requires getting length of each line)
+    pub fn move_right(&mut self) {
+        self.position.x = self.position.x.saturating_add(1);
+    }
+
     pub fn render(&mut self, _window: &Window, buffer: &Buffer) -> Result<Vec<u8>, Error> {
         let title = if let Some(filepath) = &self.args.filepath {
-            Line::raw(filepath.display().to_string())
+            filepath.display().to_string().reversed()
         } else {
-            Line::raw(Self::DEFAULT_TITLE)
-        };
-        let count = self.terminal.area().height.saturating_sub(1).convert::<usize>();
+            Self::DEFAULT_TITLE.reversed()
+        }
+        .convert::<Line<'_>>();
+        let area = self.terminal.area().saturating_sub(0, 1);
         // TODO: replace `.map(|rope_slice| rope_slice.to_string())` with non closure function
-        let lines = buffer
-            .lines(self.position.y, count)
-            .map(|rope_slice| rope_slice.to_string())
-            .map(Line::raw);
+        let lines = buffer.lines(&self.position, area).map(Line::raw);
         let lines = Some(title).into_iter().chain(lines).collect::<Vec<_>>();
         let paragraph = Paragraph::new(lines);
 
@@ -83,6 +88,6 @@ impl View {
 
 impl Identifiable for View {
     fn id(&self) -> Ulid {
-        self.id
+        self.id()
     }
 }

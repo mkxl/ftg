@@ -22,6 +22,10 @@ impl Window {
         Self { id, view_id }
     }
 
+    fn id(&self) -> Ulid {
+        self.id
+    }
+
     pub fn primary_view_id(&self) -> &Ulid {
         &self.view_id
     }
@@ -29,6 +33,6 @@ impl Window {
 
 impl Identifiable for Window {
     fn id(&self) -> Ulid {
-        self.id
+        self.id()
     }
 }

@@ -1,6 +1,7 @@
-use crate::utils::{any::Any, container::Identifiable};
+use crate::utils::{any::Any, container::Identifiable, position::Position};
 use derive_more::Constructor;
-use ropey::{Rope, RopeSlice};
+use ratatui::layout::Rect;
+use ropey::Rope;
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
@@ -11,12 +12,29 @@ pub struct Buffer {
 }
 
 impl Buffer {
+    pub fn id(&self) -> Ulid {
+        self.id
+    }
+
     pub fn from_filepath(filepath: &Path) -> Result<Self, IoError> {
         Self::new(filepath.inode_id()?, filepath.rope()?).ok()
     }
 
-    pub fn lines(&self, begin: usize, count: usize) -> impl '_ + Iterator<Item = RopeSlice> {
-        self.rope.get_lines_at(begin).into_iter().flatten().take(count)
+    pub fn lines(&self, position: &Position, area: Rect) -> impl '_ + Iterator<Item = String> {
+        let begin = position.x;
+
+        self.rope
+            .get_lines_at(position.y)
+            .into_iter()
+            .flatten()
+            .take(area.height as usize)
+            .map(move |line| {
+                let end = begin.saturating_add(area.width as usize).min(line.len_chars());
+                let begin = begin.min(end);
+                let line = line.slice(begin..end);
+
+                line.to_string()
+            })
     }
 
     pub fn len_lines(&self) -> usize {
@@ -32,6 +50,6 @@ impl Default for Buffer {
 
 impl Identifiable for Buffer {
     fn id(&self) -> Ulid {
-        self.id
+        self.id()
     }
 }

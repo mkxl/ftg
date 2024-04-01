@@ -78,10 +78,12 @@ impl Client {
     fn request(mut client_args: ClientArgs) -> Result<Request, Error> {
         let window_args = Self::window_args(&mut client_args)?;
         let mut request = client_args.server_address.into_client_request()?;
-        let config_header = window_args.serialize()?;
-        let config_header = HeaderValue::from_str(&config_header)?;
+        let window_args_header = window_args.serialize()?;
+        let window_args_header = HeaderValue::from_str(&window_args_header)?;
 
-        request.headers_mut().insert(Server::CONFIG_HEADER_NAME, config_header);
+        request
+            .headers_mut()
+            .insert(Server::WINDOW_ARGS_HEADER_NAME, window_args_header);
 
         request.ok()
     }
