@@ -1,5 +1,6 @@
 mod cli;
 mod client;
+mod config;
 mod editor;
 mod error;
 mod server;

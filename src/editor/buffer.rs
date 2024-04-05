@@ -21,6 +21,7 @@ impl Buffer {
     }
 
     pub fn lines(&self, position: &Position, area: Rect) -> impl '_ + Iterator<Item = String> {
+        // TODO: can i use this in the closure
         let begin = position.x;
 
         self.rope

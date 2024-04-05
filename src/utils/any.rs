@@ -1,10 +1,11 @@
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
+use parking_lot::Mutex;
 use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
 use ratatui::layout::Rect;
 use ropey::Rope;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
 use std::{
     fmt::Display,
@@ -12,6 +13,7 @@ use std::{
     io::{BufReader, BufWriter, Error as IoError, Read, Write},
     os::unix::fs::MetadataExt,
     path::Path,
+    sync::Arc,
 };
 use ulid::Ulid;
 
@@ -24,6 +26,10 @@ pub trait Any: Sized {
         let outputs = string.ansi_parse().collect::<Vec<_>>();
 
         outputs.some()
+    }
+
+    fn arc(self) -> Arc<Self> {
+        Arc::new(self)
     }
 
     fn binary_message(self) -> PoemMessage
@@ -72,11 +78,22 @@ pub trait Any: Sized {
         serde_json::from_str(self.as_ref())
     }
 
+    fn deserialize_reader<T: DeserializeOwned>(self) -> Result<T, SerdeJsonError>
+    where
+        Self: Read,
+    {
+        serde_json::from_reader(self)
+    }
+
     fn encode(&self) -> Result<Vec<u8>, PostcardError>
     where
         Self: Serialize,
     {
         postcard::to_stdvec(self)
+    }
+
+    fn err<T>(self) -> Result<T, Self> {
+        Err(self)
     }
 
     fn error<T, E: Display>(self) -> Option<T>
@@ -99,6 +116,10 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
+    }
+
+    fn mutex(self) -> Mutex<Self> {
+        Mutex::new(self)
     }
 
     fn ok<E>(self) -> Result<Self, E> {
@@ -155,6 +176,13 @@ pub trait Any: Sized {
 
     fn some(self) -> Option<Self> {
         Some(self)
+    }
+
+    fn mem_take(&mut self) -> Self
+    where
+        Self: Default,
+    {
+        std::mem::take(self)
     }
 
     fn with<T>(&self, value: T) -> T {

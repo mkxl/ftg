@@ -52,7 +52,7 @@ impl Terminal {
         std::mem::swap(&mut self.buffer_prev, &mut self.buffer_curr);
         self.buffer_curr.reset();
 
-        self.bytes.take().ok()
+        self.bytes.read().ok()
     }
 
     fn clear(&mut self) -> Result<(), Error> {

@@ -122,8 +122,8 @@ impl Client {
     pub fn default_server_address() -> Uri {
         std::format!(
             "ws://{host}:{port}",
-            host = Server::DEFAULT_HOST,
-            port = Server::DEFAULT_PORT,
+            host = Server::default_host(),
+            port = Server::default_port(),
         )
         .parse()
         .unwrap()

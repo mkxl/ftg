@@ -1,11 +1,14 @@
 pub mod buffer;
+pub mod keymap;
 pub mod terminal;
 pub mod view;
 pub mod window;
 
 use crate::{
+    config::Config,
     editor::{
         buffer::Buffer,
+        keymap::{Command, Keymap},
         view::View,
         window::{Args as WindowArgs, Window},
     },
@@ -19,20 +22,49 @@ use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
+macro_rules! get_mut {
+    ($self:ident, $window_id:ident) => {{
+        let window = $self.windows.get_mut($window_id);
+        let view = if let Some(ref window) = window {
+            $self.views.get_mut(window.primary_view_id())
+        } else {
+            None
+        };
+        let buffer = if let Some(ref view) = view {
+            $self.buffers.get_mut(&view.buffer_id())
+        } else {
+            None
+        };
+
+        GetMut { window, view, buffer }
+    }};
+}
+
 pub struct GetMut<'a> {
     window: Option<&'a mut Window>,
     view: Option<&'a mut View>,
     buffer: Option<&'a mut Buffer>,
 }
 
-#[derive(Default)]
 pub struct Editor {
     buffers: Container<Buffer>,
     views: Container<View>,
     windows: Container<Window>,
+    keymap: Keymap,
 }
 
 impl Editor {
+    pub fn new(config: Config) -> Self {
+        let keymap = Keymap::new(config.keymap);
+
+        Self {
+            buffers: Container::default(),
+            views: Container::default(),
+            windows: Container::default(),
+            keymap,
+        }
+    }
+
     pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
         let buffer_id = self.buffer(args.filepath.as_deref())?;
         let view = View::new(buffer_id, args)?;
@@ -58,19 +90,7 @@ impl Editor {
     }
 
     fn get_mut(&mut self, window_id: &Ulid) -> GetMut {
-        let window = self.windows.get_mut(window_id);
-        let view = if let Some(ref window) = window {
-            self.views.get_mut(window.primary_view_id())
-        } else {
-            None
-        };
-        let buffer = if let Some(ref view) = view {
-            self.buffers.get_mut(&view.buffer_id())
-        } else {
-            None
-        };
-
-        GetMut { window, view, buffer }
+        get_mut!(self, window_id)
     }
 
     pub fn render(&mut self, window_id: &Ulid) -> Result<Option<Vec<u8>>, Error> {
@@ -86,7 +106,7 @@ impl Editor {
         view.render(window, buffer)?.some().ok()
     }
 
-    pub fn feed(&mut self, window_id: &Ulid, event: &Event) -> Result<bool, Error> {
+    pub fn feed(&mut self, window_id: &Ulid, event: Event) -> Result<bool, Error> {
         // TODO: remove; currently log for debugging purposes for when the client hangs
         tracing::info!(feed_event = ?event);
 
@@ -94,45 +114,60 @@ impl Editor {
             view: Some(view),
             buffer: Some(buffer),
             ..
-        } = self.get_mut(window_id)
+        } = get_mut!(self, window_id)
         else {
             return true.ok();
         };
 
-        match event {
-            Event::Key(KeyEvent { code: KeyCode::Up, .. })
-            | Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollUp,
-                ..
-            }) => view.move_up(),
-            Event::Key(KeyEvent {
-                code: KeyCode::Down, ..
-            })
-            | Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollDown,
-                ..
-            }) => view.move_down(buffer),
-            Event::Key(KeyEvent {
-                code: KeyCode::Left, ..
-            })
-            | Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollLeft,
-                ..
-            }) => view.move_left(),
-            Event::Key(KeyEvent {
-                code: KeyCode::Right, ..
-            })
-            | Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollRight,
-                ..
-            }) => view.move_right(),
-            Event::Key(KeyEvent {
-                code: KeyCode::Char('q'),
-                ..
-            }) => return true.ok(),
-            Event::Resize(width, height) => view.resize(*width, *height)?,
+        match self.keymap.get(&[event]) {
+            Ok(Command::MoveUp) => view.move_up(),
+            Ok(Command::MoveDown) => view.move_down(buffer),
+            Ok(Command::MoveLeft) => view.move_left(),
+            Ok(Command::MoveRight) => view.move_right(),
+            Err(
+                &[Event::Key(KeyEvent {
+                    code: KeyCode::Char('q'),
+                    ..
+                })],
+            ) => return true.ok(),
+            Err(&[Event::Resize(width, height)]) => view.resize(width, height)?,
             _ => {}
         }
+
+        // match event {
+        //     Event::Key(KeyEvent { code: KeyCode::Up, .. })
+        //     | Event::Mouse(MouseEvent {
+        //         kind: MouseEventKind::ScrollUp,
+        //         ..
+        //     }) => view.move_up(),
+        //     Event::Key(KeyEvent {
+        //         code: KeyCode::Down, ..
+        //     })
+        //     | Event::Mouse(MouseEvent {
+        //         kind: MouseEventKind::ScrollDown,
+        //         ..
+        //     }) => view.move_down(buffer),
+        //     Event::Key(KeyEvent {
+        //         code: KeyCode::Left, ..
+        //     })
+        //     | Event::Mouse(MouseEvent {
+        //         kind: MouseEventKind::ScrollLeft,
+        //         ..
+        //     }) => view.move_left(),
+        //     Event::Key(KeyEvent {
+        //         code: KeyCode::Right, ..
+        //     })
+        //     | Event::Mouse(MouseEvent {
+        //         kind: MouseEventKind::ScrollRight,
+        //         ..
+        //     }) => view.move_right(),
+        //     Event::Key(KeyEvent {
+        //         code: KeyCode::Char('q'),
+        //         ..
+        //     }) => return true.ok(),
+        //     Event::Resize(width, height) => view.resize(*width, *height)?,
+        //     _ => {}
+        // }
 
         false.ok()
     }

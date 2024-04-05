@@ -1,5 +1,6 @@
 use crate::{
     cli::ServerArgs,
+    config::Config,
     editor::{window::Args as WindowArgs, Editor},
     error::Error,
     utils::{any::Any, web_socket_upgraded::WebSocketUpgraded},
@@ -31,20 +32,32 @@ impl Server {
     // TODO: resolve
     // pub const WINDOW_ARGS_HEADER_NAME: &'static str = "x-ftg-window-args";
     pub const WINDOW_ARGS_HEADER_NAME: &'static str = "window_args";
-    pub const DEFAULT_HOST: Ipv4Addr = Ipv4Addr::UNSPECIFIED;
-    pub const DEFAULT_PORT: u16 = 8080;
 
     pub async fn serve(server_args: ServerArgs) -> Result<(), Error> {
         Self::init_tracing();
 
-        let server = Self::new(Arc::default());
-        let address = (server_args.host, server_args.port);
+        let config = server_args
+            .config_filepath
+            .open()?
+            .buf_reader()
+            .deserialize_reader::<Config>()?;
+        let address = (config.host, config.port);
         let tcp_listener = TcpListener::bind(address);
         let poem_server = PoemServer::new(tcp_listener);
+        let editor = Editor::new(config).mutex().arc();
+        let server = Server::new(editor);
         let open_api_service = OpenApiService::new(server, Self::API_TITLE, Self::API_VERSION);
         let route = Route::new().nest(Self::API_PATH, open_api_service).with(Tracing);
 
         poem_server.run(route).await?.ok()
+    }
+
+    pub fn default_host() -> Ipv4Addr {
+        Ipv4Addr::UNSPECIFIED
+    }
+
+    pub fn default_port() -> u16 {
+        8080
     }
 
     fn init_tracing() {
@@ -61,12 +74,12 @@ impl Server {
 
         loop {
             // NOTE: can't use else branch bc tokio::select! waits for the first future to complete and checks if the
-            // branch is valid before falling back to the else branch
+            // branch is valid before falling back to the else branch; bc of this, we use std::future::ready(()) instead
             tokio::select! {
                 message_res_opt = web_socket_stream.next() => {
                     let Some(message_res) = message_res_opt else { break; };
                     let end = match message_res? {
-                        Message::Binary(bytes) => editor.lock().feed(&window_id, &bytes.decode()?)?,
+                        Message::Binary(bytes) => editor.lock().feed(&window_id, bytes.decode()?)?,
                         Message::Close(_close) => std::todo!(),
                         ignored_message => tracing::warn!(?ignored_message).with(false),
                     };

@@ -1,6 +1,8 @@
+use crate::utils::any::Any;
 use parking_lot::Mutex;
 use std::{
     io::{Error as IoError, Write},
+    ops::DerefMut,
     sync::Arc,
 };
 
@@ -10,8 +12,8 @@ pub struct Bytes {
 }
 
 impl Bytes {
-    pub fn take(&self) -> Vec<u8> {
-        std::mem::take(&mut *self.value.lock())
+    pub fn read(&self) -> Vec<u8> {
+        self.value.lock().deref_mut().mem_take()
     }
 }
 
