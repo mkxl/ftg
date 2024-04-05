@@ -2,6 +2,7 @@ use derive_more::{Display, From};
 use http::{header::InvalidHeaderValue, Error as HttpError};
 use postcard::Error as PostcardError;
 use serde_json::Error as SerdeJsonError;
+use serde_yaml::Error as SerdeYamlError;
 use std::io::Error as IoError;
 use tokio_tungstenite::tungstenite::Error as TungsteniteError;
 
@@ -15,5 +16,6 @@ pub enum Error {
     Io(IoError),
     Postcard(PostcardError),
     SerdeJson(SerdeJsonError),
+    SerdeYaml(SerdeYamlError),
     Tungstenite(TungsteniteError),
 }

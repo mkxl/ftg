@@ -40,7 +40,7 @@ impl Server {
             .config_filepath
             .open()?
             .buf_reader()
-            .deserialize_reader::<Config>()?;
+            .deserialize_from_yaml_reader::<Config>()?;
         let address = (config.host, config.port);
         let tcp_listener = TcpListener::bind(address);
         let poem_server = PoemServer::new(tcp_listener);
@@ -114,7 +114,9 @@ impl Server {
         web_socket: WebSocket,
         Header(window_args): Header<String>,
     ) -> Result<WebSocketUpgraded, PoemError> {
-        let window_args = window_args.deserialize().map_err(Self::deserialization_poem_error)?;
+        let window_args = window_args
+            .deserialize_from_json()
+            .map_err(Self::deserialization_poem_error)?;
         let editor = self.editor.clone();
         let web_socket_upgraded = web_socket.on_upgrade(|web_socket_stream| async move {
             Self::run(window_args, editor, web_socket_stream).await.error();

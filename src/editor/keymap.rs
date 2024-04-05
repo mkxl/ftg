@@ -25,7 +25,7 @@ impl KeyBinding {
     const MISSING_KEY_ERROR_MESSAGE: &'static str = "No key was provided";
     const UNKNOWN_KEY_ERROR_MESSAGE: &'static str = "Unknown key was provided";
 
-    fn deserialize_event<'de, D: Deserializer<'de>>(text: &'de str) -> Result<Event, D::Error> {
+    fn deserialize_event<'de, D: Deserializer<'de>>(text: &str) -> Result<Event, D::Error> {
         let mut modifiers = KeyModifiers::NONE;
         let mut substrs = text.split('+').peekable();
 
@@ -77,9 +77,10 @@ impl KeyBinding {
     }
 
     fn deserialize_events<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Event>, D::Error> {
-        let texts = <Vec<&'de str> as Deserialize>::deserialize(deserializer)?;
+        let texts = <Vec<String> as Deserialize>::deserialize(deserializer)?;
         let events: Vec<Event> = texts
-            .into_iter()
+            .iter()
+            .map(String::as_str)
             .map(Self::deserialize_event::<'de, D>)
             .collect::<Result<_, _>>()?;
 
@@ -101,7 +102,7 @@ impl Keymap {
         Self { value }
     }
 
-    pub fn get<'a>(&'a self, events: &'a [Event]) -> Result<&Command, &'a [Event]> {
+    pub fn get<'a>(&'a self, events: &'a [Event]) -> Result<&'a Command, &'a [Event]> {
         match self.value.get(events) {
             Some(key_binding) => key_binding.ok(),
             None => events.err(),

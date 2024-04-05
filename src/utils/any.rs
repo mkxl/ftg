@@ -7,6 +7,7 @@ use ratatui::layout::Rect;
 use ropey::Rope;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
+use serde_yaml::Error as SerdeYamlError;
 use std::{
     fmt::Display,
     fs::File,
@@ -71,18 +72,18 @@ pub trait Any: Sized {
         postcard::from_bytes(self.as_ref())
     }
 
-    fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> Result<T, SerdeJsonError>
+    fn deserialize_from_json<'a, T: Deserialize<'a>>(&'a self) -> Result<T, SerdeJsonError>
     where
         Self: AsRef<str>,
     {
         serde_json::from_str(self.as_ref())
     }
 
-    fn deserialize_reader<T: DeserializeOwned>(self) -> Result<T, SerdeJsonError>
+    fn deserialize_from_yaml_reader<T: DeserializeOwned>(self) -> Result<T, SerdeYamlError>
     where
         Self: Read,
     {
-        serde_json::from_reader(self)
+        serde_yaml::from_reader(self)
     }
 
     fn encode(&self) -> Result<Vec<u8>, PostcardError>
