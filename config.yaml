@@ -13,3 +13,6 @@ keymap:
   - command: move_right
     events:
       - right
+  - command: quit
+    events:
+      - q

@@ -18,7 +18,7 @@ use crate::{
         container::{Container, Identifiable},
     },
 };
-use crossterm::event::{Event, KeyCode, KeyEvent};
+use crossterm::event::Event;
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
@@ -126,12 +126,7 @@ impl Editor {
             Ok(Command::MoveDown) => view.move_down(buffer),
             Ok(Command::MoveLeft) => view.move_left(),
             Ok(Command::MoveRight) => view.move_right(),
-            Err(
-                &[Event::Key(KeyEvent {
-                    code: KeyCode::Char('q'),
-                    ..
-                })],
-            ) => return true.ok(),
+            Ok(Command::Quit) => return true.ok(),
             Err(&[Event::Resize(width, height)]) => view.resize(width, height)?,
             _ => {}
         }

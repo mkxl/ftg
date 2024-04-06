@@ -10,6 +10,7 @@ pub enum Command {
     MoveDown,
     MoveLeft,
     MoveRight,
+    Quit,
 }
 
 #[derive(Deserialize)]
