@@ -1,7 +1,6 @@
 use crate::utils::any::Any;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde::{de::Error, Deserialize, Deserializer};
-use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 
 #[derive(Deserialize)]
@@ -25,7 +24,7 @@ impl KeyBinding {
     const MISSING_KEY_ERROR_MESSAGE: &'static str = "No key was provided";
     const UNKNOWN_KEY_ERROR_MESSAGE: &'static str = "Unknown key was provided";
 
-    fn deserialize_event<'de, D: Deserializer<'de>>(text: &str) -> Result<Event, D::Error> {
+    fn deserialize_event<'a, 'de, D: Deserializer<'de>>(text: &'a str) -> Result<Event, D::Error> {
         let mut modifiers = KeyModifiers::NONE;
         let mut substrs = text.split('+').peekable();
 
@@ -77,14 +76,12 @@ impl KeyBinding {
     }
 
     fn deserialize_events<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Event>, D::Error> {
-        let texts = <Vec<String> as Deserialize>::deserialize(deserializer)?;
-        let events: Vec<Event> = texts
+        // TODO: figure out how to deserialize to &str
+        Vec::deserialize(deserializer)?
             .iter()
             .map(String::as_str)
-            .map(Self::deserialize_event::<'de, D>)
-            .collect::<Result<_, _>>()?;
-
-        events.ok()
+            .map(Self::deserialize_event::<D>)
+            .collect()
     }
 }
 

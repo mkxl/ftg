@@ -18,7 +18,7 @@ use crate::{
         container::{Container, Identifiable},
     },
 };
-use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
+use crossterm::event::{Event, KeyCode, KeyEvent};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 

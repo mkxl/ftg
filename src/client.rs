@@ -1,7 +1,7 @@
 use crate::{cli::ClientArgs, editor::window::Args as WindowArgs, error::Error, server::Server, utils::any::Any};
 use crossterm::{
     cursor::{Hide, Show},
-    event::{DisableMouseCapture, EnableMouseCapture, EventStream},
+    event::EventStream,
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
     QueueableCommand,
 };
