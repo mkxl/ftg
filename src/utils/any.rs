@@ -12,6 +12,7 @@ use std::{
     fmt::Display,
     fs::File,
     io::{BufReader, BufWriter, Error as IoError, Read, Write},
+    iter::Once,
     os::unix::fs::MetadataExt,
     path::Path,
     sync::Arc,
@@ -125,6 +126,10 @@ pub trait Any: Sized {
 
     fn ok<E>(self) -> Result<Self, E> {
         Ok(self)
+    }
+
+    fn once(self) -> Once<Self> {
+        std::iter::once(self)
     }
 
     fn open(&self) -> Result<File, IoError>

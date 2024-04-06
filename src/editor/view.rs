@@ -1,8 +1,9 @@
 use crate::{
     editor::{
         buffer::Buffer,
+        selection::set::SelectionSet,
         terminal::Terminal,
-        window::{Args as WindowArgs, Window},
+        window::{Window, WindowArgs},
     },
     error::Error,
     utils::{any::Any, container::Identifiable, position::Position},
@@ -16,6 +17,7 @@ pub struct View {
     terminal: Terminal,
     position: Position,
     args: WindowArgs,
+    selection_set: SelectionSet,
 }
 
 impl View {
@@ -25,12 +27,14 @@ impl View {
         let id = Ulid::new();
         let terminal = Terminal::new(args.size.rect());
         let position = Position::zero();
+        let selection_set = SelectionSet::new();
         let view = Self {
             id,
             buffer_id,
             terminal,
             position,
             args,
+            selection_set,
         };
 
         view.ok()
@@ -71,9 +75,8 @@ impl View {
         }
         .convert::<Line<'_>>();
         let area = self.terminal.area().saturating_sub(0, 1);
-        // TODO: replace `.map(|rope_slice| rope_slice.to_string())` with non closure function
         let lines = buffer.lines(&self.position, area).map(Line::raw);
-        let lines = Some(title).into_iter().chain(lines).collect::<Vec<_>>();
+        let lines = title.once().chain(lines).collect::<Vec<_>>();
         let paragraph = Paragraph::new(lines);
 
         self.terminal.render_widget(paragraph, self.terminal.area());

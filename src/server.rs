@@ -1,7 +1,7 @@
 use crate::{
     cli::ServerArgs,
     config::Config,
-    editor::{window::Args as WindowArgs, Editor},
+    editor::{editor::Editor, window::WindowArgs},
     error::Error,
     utils::{any::Any, web_socket_upgraded::WebSocketUpgraded},
 };

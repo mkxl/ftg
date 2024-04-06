@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use ulid::Ulid;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Args {
+pub struct WindowArgs {
     pub size: (u16, u16),
     pub filepath: Option<PathBuf>,
 }
@@ -22,7 +22,7 @@ impl Window {
         Self { id, view_id }
     }
 
-    fn id(&self) -> Ulid {
+    pub fn id(&self) -> Ulid {
         self.id
     }
 

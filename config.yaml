@@ -2,17 +2,12 @@ host: 0.0.0.0
 port: 8080
 keymap:
   - command: move_up
-    events:
-      - up
+    events: [up]
   - command: move_down
-    events:
-      - down
+    events: [down]
   - command: move_left
-    events:
-      - left
+    events: [left]
   - command: move_right
-    events:
-      - right
+    events: [right]
   - command: quit
-    events:
-      - q
+    events: [q]
