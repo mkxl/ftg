@@ -20,6 +20,8 @@ use std::{
 use ulid::Ulid;
 
 pub trait Any: Sized {
+    // NOTE: likely will be used in the future for debugging
+    #[allow(dead_code)]
     fn ansi(&self) -> Option<Vec<Output>>
     where
         Self: AsRef<[u8]>,
@@ -106,11 +108,6 @@ pub trait Any: Sized {
             Ok(ok) => ok.some(),
             Err(error) => tracing::error!(%error).with(None),
         }
-    }
-
-    // NOTE: [https://stackoverflow.com/a/41367094]
-    fn immutable(&mut self) -> &Self {
-        &*self
     }
 
     fn inode_id(self) -> Result<Ulid, IoError>

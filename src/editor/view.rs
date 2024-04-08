@@ -27,7 +27,7 @@ impl View {
         let id = Ulid::new();
         let terminal = Terminal::new(args.size.rect());
         let position = Position::zero();
-        let selection_set = SelectionSet::new();
+        let selection_set = SelectionSet::default();
         let view = Self {
             id,
             buffer_id,
