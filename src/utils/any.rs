@@ -188,6 +188,8 @@ pub trait Any: Sized {
         std::mem::take(self)
     }
 
+    fn unit(self) {}
+
     fn with<T>(&self, value: T) -> T {
         value
     }

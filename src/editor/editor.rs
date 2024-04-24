@@ -17,7 +17,7 @@ macro_rules! get_mut {
     ($self:ident, $window_id:ident) => {{
         let window = $self.windows.get_mut($window_id);
         let view = if let Some(ref window) = window {
-            $self.views.get_mut(window.primary_view_id())
+            $self.views.get_mut(&window.primary_view_id())
         } else {
             None
         };

@@ -26,8 +26,8 @@ impl Window {
         self.id
     }
 
-    pub fn primary_view_id(&self) -> &Ulid {
-        &self.view_id
+    pub fn primary_view_id(&self) -> Ulid {
+        self.view_id
     }
 }
 
