@@ -2,7 +2,7 @@ use crate::{
     config::Config,
     editor::{
         buffer::buffer::Buffer,
-        keymap::{Command, Keymap},
+        keymap::{Command, Context, Keymap},
         view::view::View,
         window::{Window, WindowArgs},
     },
@@ -29,6 +29,16 @@ macro_rules! get_mut {
 
         GetMut { window, view, buffer }
     }};
+}
+
+macro_rules! key {
+    ($chr:ident) => {
+        Event::Key(KeyEvent {
+            code: KeyCode::Char($chr),
+            modifiers: KeyModifiers::NONE,
+            ..
+        })
+    };
 }
 
 pub struct GetMut<'a> {
@@ -111,29 +121,20 @@ impl Editor {
         else {
             return true.ok();
         };
-        let context = view.context();
 
-        match self.keymap.get(context, &[event]) {
-            Ok(Command::Close) if context.is_search() => view.close_search(),
-            Ok(Command::MoveUp) => view.move_up(),
-            Ok(Command::MoveDown) => view.move_down(buffer),
-            Ok(Command::MoveLeft) => view.move_left(),
-            Ok(Command::MoveRight) => view.move_right(),
-            Ok(Command::Quit) => return true.ok(),
-            Ok(Command::Search) => view.begin_search(),
-            Ok(Command::Submit) if context.is_search() => view.submit_search(buffer),
-            Err(
-                &[Event::Key(KeyEvent {
-                    code: KeyCode::Char(chr),
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                })],
-            ) if context.is_search() => view.push_search(chr),
-            Err(&[Event::Resize(width, height)]) => view.resize(width, height)?,
-            res => tracing::info!(
-                ignored_keybinding_result = ?res,
-                view.context = ?context,
-            ),
+        match self.keymap.get(view.context(), &[event]) {
+            (_, Ok(Command::Quit)) => return true.ok(),
+            (_, Err(&[Event::Resize(width, height)])) => view.resize(width, height)?,
+            (Context::Buffer, Ok(Command::MoveUp)) => view.move_up(),
+            (Context::Buffer, Ok(Command::MoveDown)) => view.move_down(buffer),
+            (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
+            (Context::Buffer, Ok(Command::MoveRight)) => view.move_right(),
+            (Context::Buffer, Ok(Command::Search)) => view.begin_search(),
+            (Context::Buffer, Err(&[key!(chr)])) => view.insert_character(buffer, chr),
+            (Context::Search, Ok(Command::Submit)) => view.submit_search(buffer),
+            (Context::Search, Ok(Command::Close)) => view.close_search(),
+            (Context::Search, Err(&[key!(chr)])) => view.push_search(chr),
+            (context, ignored_result) => tracing::info!(view.context = ?context, ?ignored_result),
         }
 
         false.ok()

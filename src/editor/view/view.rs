@@ -96,8 +96,8 @@ impl View {
         self.terminal.resize((width, height).rect())
     }
 
-    pub fn context(&self) -> &Context {
-        &self.context
+    pub fn context(&self) -> Context {
+        self.context
     }
 
     pub fn begin_search(&mut self) {
@@ -120,6 +120,10 @@ impl View {
 
     pub fn close_search(&mut self) {
         self.context = Context::Buffer;
+    }
+
+    pub fn insert_character(&mut self, buffer: &mut Buffer, chr: char) {
+        tracing::info!(position = ?self.position, char = ?chr, "insert_character");
     }
 }
 

@@ -5,7 +5,7 @@ use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
 use ratatui::layout::Rect;
 use ropey::Rope;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
 use serde_yaml::Error as SerdeYamlError;
 use std::{

@@ -2,7 +2,6 @@ use crate::utils::any::Any;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde::{de::Error, Deserialize, Deserializer};
 use std::collections::HashMap;
-use strum::EnumIs;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -17,7 +16,7 @@ pub enum Command {
     Submit,
 }
 
-#[derive(Clone, Debug, Deserialize, EnumIs, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Context {
     Buffer,
@@ -117,7 +116,7 @@ impl Keymap {
 
         for key_binding in key_bindings {
             for context in key_binding.contexts {
-                let key = Self::key(&context, &key_binding.events);
+                let key = Self::key(context, &key_binding.events);
 
                 value.insert(key, key_binding.command.clone());
             }
@@ -126,16 +125,16 @@ impl Keymap {
         Self { value }
     }
 
-    fn key(context: &Context, events: &[Event]) -> u64 {
+    fn key(context: Context, events: &[Event]) -> u64 {
         (context, events).hashcode()
     }
 
-    pub fn get<'a>(&'a self, context: &Context, events: &'a [Event]) -> Result<&'a Command, &'a [Event]> {
+    pub fn get<'a>(&'a self, context: Context, events: &'a [Event]) -> (Context, Result<&'a Command, &'a [Event]>) {
         let key = Self::key(context, events);
 
         match self.value.get(&key) {
-            Some(command) => command.ok(),
-            None => events.err(),
+            Some(command) => (context, command.ok()),
+            None => (context, events.err()),
         }
     }
 }
