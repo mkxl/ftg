@@ -83,11 +83,11 @@ pub trait Any: Sized {
         serde_json::from_str(self.as_ref())
     }
 
-    fn deserialize_from_yaml_reader<T: DeserializeOwned>(self) -> Result<T, SerdeYamlError>
+    fn deserialize_from_yaml<'a, T: Deserialize<'a>>(&'a self) -> Result<T, SerdeYamlError>
     where
-        Self: Read,
+        Self: AsRef<str>,
     {
-        serde_yaml::from_reader(self)
+        serde_yaml::from_str(self.as_ref())
     }
 
     fn encode(&self) -> Result<Vec<u8>, PostcardError>
@@ -129,6 +129,13 @@ pub trait Any: Sized {
         self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
     }
 
+    fn mem_take(&mut self) -> Self
+    where
+        Self: Default,
+    {
+        std::mem::take(self)
+    }
+
     fn mutex(self) -> Mutex<Self> {
         Mutex::new(self)
     }
@@ -146,6 +153,13 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         File::open(self)
+    }
+
+    fn read_to_string(&self) -> Result<String, IoError>
+    where
+        Self: AsRef<Path>,
+    {
+        std::fs::read_to_string(self)
     }
 
     fn rect(self) -> Rect
@@ -191,13 +205,6 @@ pub trait Any: Sized {
 
     fn some(self) -> Option<Self> {
         Some(self)
-    }
-
-    fn mem_take(&mut self) -> Self
-    where
-        Self: Default,
-    {
-        std::mem::take(self)
     }
 
     fn unit(self) {}

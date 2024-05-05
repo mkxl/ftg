@@ -37,7 +37,7 @@ impl ClientArgs {
 #[derive(Args)]
 pub struct ServerArgs {
     #[arg(long = "config")]
-    pub config_filepath: PathBuf,
+    pub config_filepath: Option<PathBuf>,
 }
 
 impl ServerArgs {

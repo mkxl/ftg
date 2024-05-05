@@ -29,6 +29,7 @@ impl Server {
     const API_PATH: &'static str = "/";
     const API_TITLE: &'static str = std::env!("CARGO_PKG_NAME");
     const API_VERSION: &'static str = std::env!("CARGO_PKG_VERSION");
+    const DEFAULT_CONFIG_STR: &'static str = std::include_str!("config.yaml");
     // TODO: resolve
     // pub const WINDOW_ARGS_HEADER_NAME: &'static str = "x-ftg-window-args";
     pub const WINDOW_ARGS_HEADER_NAME: &'static str = "window_args";
@@ -36,11 +37,7 @@ impl Server {
     pub async fn serve(server_args: ServerArgs) -> Result<(), Error> {
         Self::init_tracing();
 
-        let config = server_args
-            .config_filepath
-            .open()?
-            .buf_reader()
-            .deserialize_from_yaml_reader::<Config>()?;
+        let config = Self::config(&server_args)?;
         let address = (config.host, config.port);
         let tcp_listener = TcpListener::bind(address);
         let poem_server = PoemServer::new(tcp_listener);
@@ -50,6 +47,18 @@ impl Server {
         let route = Route::new().nest(Self::API_PATH, open_api_service).with(Tracing);
 
         poem_server.run(route).await?.ok()
+    }
+
+    fn config(server_args: &ServerArgs) -> Result<Config, Error> {
+        // TODO: why is the turbofish necessary
+        if let Some(config_filepath) = &server_args.config_filepath {
+            config_filepath
+                .read_to_string()?
+                .deserialize_from_yaml::<Config>()?
+                .ok()
+        } else {
+            Self::DEFAULT_CONFIG_STR.deserialize_from_yaml::<Config>()?.ok()
+        }
     }
 
     pub fn default_host() -> Ipv4Addr {
