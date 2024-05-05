@@ -1,4 +1,4 @@
-use crate::{editor::view::View, utils::container::Identifiable};
+use crate::{editor::view::view::View, utils::container::Identifiable};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use ulid::Ulid;

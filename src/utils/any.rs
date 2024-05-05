@@ -11,6 +11,7 @@ use serde_yaml::Error as SerdeYamlError;
 use std::{
     fmt::Display,
     fs::File,
+    hash::{DefaultHasher, Hash, Hasher},
     io::{BufReader, BufWriter, Error as IoError, Read, Write},
     iter::Once,
     os::unix::fs::MetadataExt,
@@ -108,6 +109,17 @@ pub trait Any: Sized {
             Ok(ok) => ok.some(),
             Err(error) => tracing::error!(%error).with(None),
         }
+    }
+
+    fn hashcode(&self) -> u64
+    where
+        Self: Hash,
+    {
+        let mut hasher = DefaultHasher::new();
+
+        self.hash(&mut hasher);
+
+        hasher.finish()
     }
 
     fn inode_id(self) -> Result<Ulid, IoError>

@@ -1,13 +1,11 @@
 host: 0.0.0.0
 port: 8080
 keymap:
-  - command: move_up
-    events: [up]
-  - command: move_down
-    events: [down]
-  - command: move_left
-    events: [left]
-  - command: move_right
-    events: [right]
-  - command: quit
-    events: [q]
+  - { keys: [up], command: move_up }
+  - { keys: [down], command: move_down }
+  - { keys: [left], command: move_left }
+  - { keys: [right], command: move_right }
+  - { keys: [ctrl+q], command: quit }
+  - { keys: [f], command: search }
+  - { keys: [esc], command: close, contexts: [search] }
+  - { keys: [enter], command: submit, contexts: [search] }

@@ -2,32 +2,49 @@ use crate::utils::any::Any;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde::{de::Error, Deserialize, Deserializer};
 use std::collections::HashMap;
+use strum::EnumIs;
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
+    Close,
     MoveUp,
     MoveDown,
     MoveLeft,
     MoveRight,
     Quit,
+    Search,
+    Submit,
+}
+
+#[derive(Clone, Debug, Deserialize, EnumIs, Eq, Hash, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum Context {
+    Buffer,
+    Search,
 }
 
 #[derive(Deserialize)]
 pub struct KeyBinding {
-    #[serde(deserialize_with = "KeyBinding::deserialize_events")]
+    #[serde(deserialize_with = "KeyBinding::deserialize_keys", rename(deserialize = "keys"))]
     events: Vec<Event>,
 
     command: Command,
+
+    #[serde(default = "KeyBinding::default_contexts")]
+    contexts: Vec<Context>,
 }
 
 impl KeyBinding {
     const MISSING_KEY_ERROR_MESSAGE: &'static str = "No key was provided";
     const UNKNOWN_KEY_ERROR_MESSAGE: &'static str = "Unknown key was provided";
 
-    fn deserialize_event<'a, 'de, D: Deserializer<'de>>(text: &'a str) -> Result<Event, D::Error> {
+    // NOTE: each individual event_str must be of the form
+    // [ctrl +] [shift +] [alt +] (<special-key> | <single-character>)
+    // where <special-key> is one of the special keys listed below
+    fn deserialize_key<'a, 'de, D: Deserializer<'de>>(event_str: &'a str) -> Result<Event, D::Error> {
         let mut modifiers = KeyModifiers::NONE;
-        let mut substrs = text.split('+').peekable();
+        let mut substrs = event_str.split('+').peekable();
 
         if let Some(&"ctrl") = substrs.peek() {
             modifiers.insert(KeyModifiers::CONTROL);
@@ -76,33 +93,48 @@ impl KeyBinding {
         event.ok()
     }
 
-    fn deserialize_events<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Event>, D::Error> {
+    fn deserialize_keys<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Event>, D::Error> {
         // TODO: figure out how to deserialize to &str
         Vec::deserialize(deserializer)?
             .iter()
             .map(String::as_str)
-            .map(Self::deserialize_event::<D>)
+            .map(Self::deserialize_key::<D>)
             .collect()
+    }
+
+    fn default_contexts() -> Vec<Context> {
+        std::vec![Context::Buffer]
     }
 }
 
 pub struct Keymap {
-    value: HashMap<Vec<Event>, Command>,
+    value: HashMap<u64, Command>,
 }
 
 impl Keymap {
     pub fn new(key_bindings: Vec<KeyBinding>) -> Self {
-        let value = key_bindings
-            .into_iter()
-            .map(|key_binding| (key_binding.events, key_binding.command))
-            .collect();
+        let mut value = HashMap::new();
+
+        for key_binding in key_bindings {
+            for context in key_binding.contexts {
+                let key = Self::key(&context, &key_binding.events);
+
+                value.insert(key, key_binding.command.clone());
+            }
+        }
 
         Self { value }
     }
 
-    pub fn get<'a>(&'a self, events: &'a [Event]) -> Result<&'a Command, &'a [Event]> {
-        match self.value.get(events) {
-            Some(key_binding) => key_binding.ok(),
+    fn key(context: &Context, events: &[Event]) -> u64 {
+        (context, events).hashcode()
+    }
+
+    pub fn get<'a>(&'a self, context: &Context, events: &'a [Event]) -> Result<&'a Command, &'a [Event]> {
+        let key = Self::key(context, events);
+
+        match self.value.get(&key) {
+            Some(command) => command.ok(),
             None => events.err(),
         }
     }

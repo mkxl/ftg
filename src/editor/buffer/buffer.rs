@@ -1,4 +1,7 @@
-use crate::utils::{any::Any, container::Identifiable, position::Position};
+use crate::{
+    editor::buffer::search::SearchIter,
+    utils::{any::Any, container::Identifiable, position::Position},
+};
 use derive_more::Constructor;
 use ratatui::layout::Rect;
 use ropey::Rope;
@@ -18,6 +21,10 @@ impl Buffer {
 
     pub fn from_filepath(filepath: &Path) -> Result<Self, IoError> {
         Self::new(filepath.inode_id()?, filepath.rope()?).ok()
+    }
+
+    pub fn search<'q, 'r>(&'r self, query: &'q str) -> SearchIter<'q, 'r> {
+        SearchIter::new(&self.rope, query)
     }
 
     pub fn lines(&self, position: &Position, area: Rect) -> impl '_ + Iterator<Item = String> {

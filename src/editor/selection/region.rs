@@ -1,6 +1,6 @@
 use derive_more::From;
 
-#[derive(From)]
+#[derive(Debug, From)]
 pub struct Region {
     begin: usize,
     end: usize,

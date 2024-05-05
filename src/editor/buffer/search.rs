@@ -5,13 +5,13 @@ use std::{
     str::Chars as StrChars,
 };
 
-struct Query<'a> {
+struct PossibleMatch<'q> {
     begin: usize,
-    chars: Peekable<StrChars<'a>>,
+    chars: Peekable<StrChars<'q>>,
 }
 
-impl<'a> Query<'a> {
-    fn new(begin: usize, text: &'a str) -> Self {
+impl<'q> PossibleMatch<'q> {
+    fn new(begin: usize, text: &'q str) -> Self {
         Self {
             begin,
             chars: text.chars().peekable(),
@@ -19,47 +19,47 @@ impl<'a> Query<'a> {
     }
 }
 
-pub struct SearchIter<'a> {
-    queries: Vec<Query<'a>>,
-    query: &'a str,
-    rope_iter: Enumerate<RopeChars<'a>>,
+pub struct SearchIter<'q, 'r> {
+    possible_matches: Vec<PossibleMatch<'q>>,
+    query: &'q str,
+    rope_iter: Enumerate<RopeChars<'r>>,
 }
 
-impl<'a> SearchIter<'a> {
-    fn new(rope: &'a Rope, query: &'a str) -> Self {
+impl<'q, 'r> SearchIter<'q, 'r> {
+    pub fn new(rope: &'r Rope, query: &'q str) -> Self {
         Self {
-            queries: std::vec![],
+            possible_matches: std::vec![],
             query,
             rope_iter: rope.chars().enumerate(),
         }
     }
 }
 
-impl<'a> Iterator for SearchIter<'a> {
+impl<'q, 'r> Iterator for SearchIter<'q, 'r> {
     type Item = Region;
 
     fn next(&mut self) -> Option<Self::Item> {
         for (idx, rope_char) in &mut self.rope_iter {
             // NOTE:
-            // - need to remove items from self.queries as we iterate over it
+            // - need to remove items from self.possible_matches as we iterate over it
             // - easiest way to do that is to keep a pointer to current position, and call .swap_remove() whenever
             //   an element needs to be removed or increment the pointer otherwise
-            let query = Query::new(idx, self.query);
+            let possible_match = PossibleMatch::new(idx, self.query);
             let mut i = 0;
 
             // NOTE: possible matches starting at `idx`
-            self.queries.push(query);
+            self.possible_matches.push(possible_match);
 
-            while i < self.queries.len() {
-                let query = &mut self.queries[i];
-                let query_char = query.chars.next();
-                let next_query_char = query.chars.peek();
-                let begin = query.begin;
+            while i < self.possible_matches.len() {
+                let possible_match = &mut self.possible_matches[i];
+                let possible_match_char = possible_match.chars.next();
+                let next_possible_match_char = possible_match.chars.peek();
+                let begin = possible_match.begin;
 
-                match (query_char == Some(rope_char), next_query_char) {
+                match (possible_match_char == Some(rope_char), next_possible_match_char) {
                     // NOTE: possible is confimed as a match
                     (true, None) => {
-                        self.queries.swap_remove(i);
+                        self.possible_matches.swap_remove(i);
 
                         return (begin, idx).convert::<Region>().some();
                     }
@@ -72,7 +72,7 @@ impl<'a> Iterator for SearchIter<'a> {
                     }
 
                     // NOTE: query_chars is no longer valid and needs to be removed
-                    (false, _) => self.queries.swap_remove(i).unit(),
+                    (false, _) => self.possible_matches.swap_remove(i).unit(),
                 }
             }
         }

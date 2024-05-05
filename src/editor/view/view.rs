@@ -1,8 +1,10 @@
 use crate::{
     editor::{
-        buffer::Buffer,
+        buffer::buffer::Buffer,
+        keymap::Context,
         selection::set::SelectionSet,
         terminal::Terminal,
+        view::search::Search,
         window::{Window, WindowArgs},
     },
     error::Error,
@@ -18,6 +20,8 @@ pub struct View {
     position: Position,
     args: WindowArgs,
     selection_set: SelectionSet,
+    context: Context,
+    search: Search,
 }
 
 impl View {
@@ -28,6 +32,8 @@ impl View {
         let terminal = Terminal::new(args.size.rect());
         let position = Position::zero();
         let selection_set = SelectionSet::default();
+        let context = Context::Buffer;
+        let search = Search::default();
         let view = Self {
             id,
             buffer_id,
@@ -35,6 +41,8 @@ impl View {
             position,
             args,
             selection_set,
+            context,
+            search,
         };
 
         view.ok()
@@ -86,6 +94,32 @@ impl View {
 
     pub fn resize(&mut self, width: u16, height: u16) -> Result<(), Error> {
         self.terminal.resize((width, height).rect())
+    }
+
+    pub fn context(&self) -> &Context {
+        &self.context
+    }
+
+    pub fn begin_search(&mut self) {
+        self.context = Context::Search;
+    }
+
+    pub fn push_search(&mut self, chr: char) {
+        self.search.push(chr);
+
+        // TODO: remove
+        tracing::info!(view.search.query = ?self.search.query());
+    }
+
+    pub fn submit_search(&mut self, buffer: &Buffer) {
+        for region in buffer.search(self.search.query()) {
+            // TODO: remove
+            tracing::info!(?region);
+        }
+    }
+
+    pub fn close_search(&mut self) {
+        self.context = Context::Buffer;
     }
 }
 

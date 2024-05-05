@@ -1,15 +1,15 @@
 use crate::{
     config::Config,
     editor::{
-        buffer::Buffer,
+        buffer::buffer::Buffer,
         keymap::{Command, Keymap},
-        view::View,
+        view::view::View,
         window::{Window, WindowArgs},
     },
     error::Error,
     utils::{any::Any, container::Container},
 };
-use crossterm::event::Event;
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
@@ -111,15 +111,29 @@ impl Editor {
         else {
             return true.ok();
         };
+        let context = view.context();
 
-        match self.keymap.get(&[event]) {
+        match self.keymap.get(context, &[event]) {
+            Ok(Command::Close) if context.is_search() => view.close_search(),
             Ok(Command::MoveUp) => view.move_up(),
             Ok(Command::MoveDown) => view.move_down(buffer),
             Ok(Command::MoveLeft) => view.move_left(),
             Ok(Command::MoveRight) => view.move_right(),
             Ok(Command::Quit) => return true.ok(),
+            Ok(Command::Search) => view.begin_search(),
+            Ok(Command::Submit) if context.is_search() => view.submit_search(buffer),
+            Err(
+                &[Event::Key(KeyEvent {
+                    code: KeyCode::Char(chr),
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                })],
+            ) if context.is_search() => view.push_search(chr),
             Err(&[Event::Resize(width, height)]) => view.resize(width, height)?,
-            _ => {}
+            res => tracing::info!(
+                ignored_keybinding_result = ?res,
+                view.context = ?context,
+            ),
         }
 
         false.ok()
