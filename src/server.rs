@@ -42,7 +42,7 @@ impl Server {
         let tcp_listener = TcpListener::bind(address);
         let poem_server = PoemServer::new(tcp_listener);
         let editor = Editor::new(config).mutex().arc();
-        let server = Server::new(editor);
+        let server = Self::new(editor);
         let open_api_service = OpenApiService::new(server, Self::API_TITLE, Self::API_VERSION);
         let route = Route::new().nest(Self::API_PATH, open_api_service).with(Tracing);
 
