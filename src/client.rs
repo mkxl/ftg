@@ -11,7 +11,6 @@ use http::{HeaderValue, Uri};
 use std::{
     io::{StdoutLock, Write},
     path::Path,
-    sync::Mutex,
 };
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, handshake::client::Request, Message};
 
@@ -34,11 +33,10 @@ impl Client {
         let Some(log_filepath) = log_filepath else {
             return ().ok();
         };
-        let writer = log_filepath.create()?.buf_writer();
-        let writer = Mutex::new(writer);
+        let log_file = log_filepath.create()?;
 
         // TODO: consider using tracing-appender for writing to a file
-        tracing_subscriber::fmt().with_writer(writer).json().init();
+        tracing_subscriber::fmt().with_writer(log_file).json().init();
 
         ().ok()
     }
@@ -87,31 +85,35 @@ impl Client {
         let mut client = Client::new(client_args.log_filepath.as_deref())?;
         let mut events = EventStream::new();
         let request = Self::request(client_args)?;
-        let (web_socket, _response) = tokio_tungstenite::connect_async(request).await?;
-        let (mut sink, mut stream) = web_socket.split();
+        let (mut web_socket, _response) = tokio_tungstenite::connect_async(request).await?;
 
-        let recv = async {
-            while let Some(message_res) = stream.next().await {
-                match message_res? {
-                    Message::Binary(bytes) => client.stdout.write_all_and_flush(&bytes)?,
-                    Message::Close(_close) => std::todo!(),
-                    ignored_message => tracing::warn!(?ignored_message),
+        loop {
+            tokio::select! {
+                message_res_opt = web_socket.next() => {
+                    match message_res_opt {
+                        Some(Ok(Message::Binary(bytes))) => client.stdout.write_all_and_flush(&bytes)?,
+                        Some(Ok(Message::Close(_close))) => std::todo!(),
+                        Some(Ok(ignored_message)) => tracing::warn!(?ignored_message),
+                        Some(message_res) => message_res?.unit(),
+                        None => std::todo!(),
+                    }
+                }
+                event_res_opt = events.next() => {
+                    let Some(event_res) = event_res_opt else { std::todo!(); };
+
+                    // TODO: figure out why this doesn't work
+                    // - [event_res?.encode()?.into().send_to(&mut sink).await?;]
+                    // event_res?.encode()?.convert::<Message>().send_to(&mut web_socket).await?; [02db07]
+
+                    // TODO: restore [02db07]
+                    let event = event_res?;
+
+                    event.encode()?.convert::<Message>().send_to(&mut web_socket).await?;
+
+                    tracing::info!(?event);
                 }
             }
-
-            ().ok()
-        };
-        let send = async {
-            while let Some(event_res) = events.next().await {
-                // TODO: figure out why this doesn't work
-                // - event_res?.encode()?.into().send_to(&mut sink).await?;
-                event_res?.encode()?.convert::<Message>().send_to(&mut sink).await?;
-            }
-
-            ().ok()
-        };
-
-        crate::utils::macros::select!(recv, send)
+        }
     }
 
     pub fn default_server_address() -> Uri {

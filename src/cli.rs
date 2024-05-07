@@ -22,7 +22,7 @@ pub struct ClientArgs {
     #[arg(long, default_value_t = Client::default_server_address())]
     pub server_address: Uri,
 
-    #[arg(long)]
+    #[arg(long = "logs")]
     pub log_filepath: Option<PathBuf>,
 
     pub filepath: Option<PathBuf>,

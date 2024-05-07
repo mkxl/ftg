@@ -123,7 +123,7 @@ impl View {
     }
 
     pub fn insert_character(&mut self, buffer: &mut Buffer, chr: char) {
-        tracing::info!(position = ?self.position, char = ?chr, "insert_character");
+        tracing::info!(message = "insert_character", position = ?self.position, char = chr);
     }
 }
 

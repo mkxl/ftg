@@ -76,16 +76,18 @@ impl Server {
     async fn run(
         window_args: WindowArgs,
         editor: Arc<Mutex<Editor>>,
-        web_socket_stream: WebSocketStream,
+        mut web_socket_stream: WebSocketStream,
     ) -> Result<(), Error> {
         let window_id = editor.lock().new_window(window_args)?;
-        let (mut web_socket_sink, mut web_socket_stream) = web_socket_stream.split();
 
         loop {
             // NOTE: can't use else branch bc tokio::select! waits for the first future to complete and checks if the
             // branch is valid before falling back to the else branch; bc of this, we use std::future::ready(()) instead
             tokio::select! {
                 message_res_opt = web_socket_stream.next() => {
+                    // TODO: [02db07]
+                    tracing::info!("received message from client");
+
                     let Some(message_res) = message_res_opt else { break; };
                     let end = match message_res? {
                         Message::Binary(bytes) => editor.lock().feed(&window_id, bytes.decode()?)?,
@@ -101,7 +103,7 @@ impl Server {
                     let Some(bytes) = editor.lock().render(&window_id)? else { std::todo!(); };
 
                     if !bytes.is_empty() {
-                        bytes.binary_message().send_to(&mut web_socket_sink).await?;
+                        bytes.binary_message().send_to(&mut web_socket_stream).await?;
                     }
                 }
             }

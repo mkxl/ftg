@@ -12,7 +12,7 @@ use std::{
     fmt::Display,
     fs::File,
     hash::{DefaultHasher, Hash, Hasher},
-    io::{BufReader, BufWriter, Error as IoError, Read, Write},
+    io::{BufReader, Error as IoError, Read, Write},
     iter::Once,
     os::unix::fs::MetadataExt,
     path::Path,
@@ -49,13 +49,6 @@ pub trait Any: Sized {
         Self: Read,
     {
         BufReader::new(self)
-    }
-
-    fn buf_writer(self) -> BufWriter<Self>
-    where
-        Self: Write,
-    {
-        BufWriter::new(self)
     }
 
     fn convert<T: From<Self>>(self) -> T {

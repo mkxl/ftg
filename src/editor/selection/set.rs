@@ -6,7 +6,7 @@ pub struct SelectionSet {
 
 impl Default for SelectionSet {
     fn default() -> Self {
-        Selection::empty().once().collect()
+        Selection::empty().into()
     }
 }
 
