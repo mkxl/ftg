@@ -35,7 +35,7 @@ macro_rules! key {
     ($chr:ident) => {
         Event::Key(KeyEvent {
             code: KeyCode::Char($chr),
-            modifiers: KeyModifiers::NONE,
+            modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
             ..
         })
     };

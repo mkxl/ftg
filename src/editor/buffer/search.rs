@@ -1,4 +1,4 @@
-use crate::{editor::selection::region::Region, utils::any::Any};
+use crate::{editor::selection::selection::Region, utils::any::Any};
 use ropey::{iter::Chars as RopeChars, Rope};
 use std::{
     iter::{Enumerate, Peekable},
@@ -61,7 +61,8 @@ impl<'q, 'r> Iterator for SearchIter<'q, 'r> {
                     (true, None) => {
                         self.possible_matches.swap_remove(i);
 
-                        return (begin, idx).convert::<Region>().some();
+                        #[allow(clippy::range_plus_one)]
+                        return (begin..(idx + 1)).some();
                     }
 
                     // NOTE: query_chars is still valid, but has not been confirmed as a match

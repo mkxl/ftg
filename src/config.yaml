@@ -5,7 +5,7 @@ keymap:
   - { keys: [down], command: move_down }
   - { keys: [left], command: move_left }
   - { keys: [right], command: move_right }
-  - { keys: [ctrl+q], command: quit }
+  - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }
   - { keys: [f], command: search }
   - { keys: [esc], command: close, contexts: [search] }
   - { keys: [enter], command: submit, contexts: [search] }

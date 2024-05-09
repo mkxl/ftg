@@ -1,14 +1,16 @@
+use crate::editor::selection::selection::Region;
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
 use parking_lot::Mutex;
 use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
-use ratatui::layout::Rect;
+use ratatui::{layout::Rect, text::Span};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
 use serde_yaml::Error as SerdeYamlError;
 use std::{
+    borrow::Borrow,
     fmt::Display,
     fs::File,
     hash::{DefaultHasher, Hash, Hasher},
@@ -31,6 +33,10 @@ pub trait Any: Sized {
         let outputs = string.ansi_parse().collect::<Vec<_>>();
 
         outputs.some()
+    }
+
+    fn push_to(self, values: &mut Vec<Self>) {
+        values.push(self);
     }
 
     fn arc(self) -> Arc<Self> {
@@ -122,6 +128,17 @@ pub trait Any: Sized {
         self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
     }
 
+    fn intersect(&self, other: &Region) -> Region
+    where
+        Self: Borrow<Region>,
+    {
+        let this = self.borrow();
+        let start = this.start.max(other.start);
+        let end = this.end.min(other.end);
+
+        start..end
+    }
+
     fn mem_take(&mut self) -> Self
     where
         Self: Default,
@@ -198,6 +215,13 @@ pub trait Any: Sized {
 
     fn some(self) -> Option<Self> {
         Some(self)
+    }
+
+    fn span(&mut self, len: usize) -> Span<'static>
+    where
+        Self: Iterator<Item = char>,
+    {
+        Span::raw(self.take(len).collect::<String>())
     }
 
     fn unit(self) {}

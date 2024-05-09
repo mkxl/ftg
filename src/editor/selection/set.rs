@@ -1,12 +1,23 @@
-use crate::{editor::selection::selection::Selection, utils::any::Any};
+use crate::{
+    editor::selection::selection::{Region, Selection},
+    utils::any::Any,
+};
+use derive_more::From;
 
+#[derive(From)]
 pub struct SelectionSet {
     selections: Vec<Selection>,
 }
 
-impl Default for SelectionSet {
-    fn default() -> Self {
-        Selection::empty().into()
+impl SelectionSet {
+    pub fn primary(&self) -> &Selection {
+        &self.selections[0]
+    }
+}
+
+impl From<Region> for SelectionSet {
+    fn from(region: Region) -> Self {
+        Selection::from(region).into()
     }
 }
 
@@ -16,10 +27,14 @@ impl From<Selection> for SelectionSet {
     }
 }
 
+impl FromIterator<Region> for SelectionSet {
+    fn from_iter<T: IntoIterator<Item = Region>>(iter: T) -> Self {
+        iter.into_iter().collect::<Selection>().into()
+    }
+}
+
 impl FromIterator<Selection> for SelectionSet {
     fn from_iter<T: IntoIterator<Item = Selection>>(iter: T) -> Self {
-        let selections = iter.into_iter().collect();
-
-        Self { selections }
+        iter.into_iter().collect::<Vec<_>>().into()
     }
 }

@@ -11,4 +11,8 @@ impl Search {
     pub fn push(&mut self, chr: char) {
         self.query.push(chr);
     }
+
+    pub fn clear(&mut self) {
+        self.query.clear();
+    }
 }
