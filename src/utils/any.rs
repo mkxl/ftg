@@ -1,4 +1,3 @@
-use crate::editor::selection::selection::Region;
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
 use parking_lot::Mutex;
@@ -10,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
 use serde_yaml::Error as SerdeYamlError;
 use std::{
-    borrow::Borrow,
     fmt::Display,
     fs::File,
     hash::{DefaultHasher, Hash, Hasher},
@@ -126,17 +124,6 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
-    }
-
-    fn intersect(&self, other: &Region) -> Region
-    where
-        Self: Borrow<Region>,
-    {
-        let this = self.borrow();
-        let start = this.start.max(other.start);
-        let end = this.end.min(other.end);
-
-        start..end
     }
 
     fn mem_take(&mut self) -> Self

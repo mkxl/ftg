@@ -2,7 +2,7 @@ use crate::{
     editor::{
         buffer::buffer::{Buffer, Chunk},
         keymap::Context,
-        selection::set::SelectionSet,
+        selection::{region::Region, set::SelectionSet},
         terminal::Terminal,
         view::search::Search,
         window::{Window, WindowArgs},
@@ -32,7 +32,7 @@ impl View {
         let id = Ulid::new();
         let terminal = Terminal::new(args.size.rect());
         let position = Position::zero();
-        let selection_set = (0..1).into();
+        let selection_set = Region::ii(0, 0).unwrap().into();
         let context = Context::Buffer;
         let search = Search::default();
         let view = Self {
@@ -81,7 +81,7 @@ impl View {
         chunks: C,
     ) -> impl 'a + Iterator<Item = Line<'a>> {
         let mut selection_regions = selection_set.primary().iter();
-        let mut curr_selection_region_opt = selection_regions.next();
+        let mut selection_region_opt = selection_regions.next();
 
         chunks.map(move |chunk| {
             // NOTE:
@@ -90,53 +90,57 @@ impl View {
             // - see [2] for the source of the implementation
             // - [1]: [https://docs.rs/ropey/latest/ropey/struct.Rope.html#method.slice]
             // - [2]: [~/tree/projects/.scratch/python/notebooks/2024-05-07-chunks.ipynb]
-            let mut chunk_subregion = chunk.region().clone();
+            let mut chunk_subregion_opt = chunk.region();
             let mut chunk_chars = chunk.chars();
             let mut chunk_spans = std::vec![];
 
             loop {
-                if chunk_subregion.is_empty() {
+                // NOTE: if the current chunk remainder is empty, then i'm done processing the chunk, and i can
+                // continue onto the next chunk
+                let Some(chunk_subregion) = chunk_subregion_opt else {
                     break;
-                }
+                };
 
-                let Some(curr_selection_region) = &curr_selection_region_opt else {
+                // NOTE: if there are no more selection regions, yield the current chunk remainder and continue
+                // onto the next chunk
+                let Some(selection_region) = &selection_region_opt else {
                     chunk_chars.span(chunk_subregion.len()).push_to(&mut chunk_spans);
 
                     break;
                 };
 
-                let intersection = curr_selection_region.intersect(&chunk_subregion);
-
-                if intersection.is_empty() {
-                    // NOTE: chunk_subregion is nonempty, so if the intersection is empty and curr_selection_region
-                    // is to the left of chunk_subregion, then curr_selection_region must end before
-                    // chunk_subregion begins, and i can skip to the next curr_selection_region
-                    if curr_selection_region.start < chunk_subregion.end {
-                        curr_selection_region_opt = selection_regions.next();
+                let Some(intersection) = selection_region.intersect(&chunk_subregion) else {
+                    // NOTE: chunk_subregion is nonempty, so if the intersection is empty and selection_region
+                    // is to the left of chunk_subregion, then selection_region must end before chunk_subregion
+                    // begins, and i can skip to the next selection_region
+                    if selection_region.start() < chunk_subregion.start() {
+                        selection_region_opt = selection_regions.next();
 
                         continue;
                     }
 
-                    // NOTE: otherwise if curr_selection_region is to the right of chunk_subregion and their
-                    // intersection is empty, then i can skip to the next chunk_subregion (ofc yielding the current
-                    // (nonempty) chunk_subregion first)
+                    // NOTE: otherwise, selection_region is to the right of chunk_subregion, and i can skip to the next
+                    // chunk after first yielding the current chunk remainder
                     chunk_chars.span(chunk_subregion.len()).push_to(&mut chunk_spans);
 
                     break;
-                }
+                };
 
-                if chunk_subregion.start < intersection.start {
+                // NOTE: if the beginning of the current chunk remainder is not included in the intersection, yield it
+                if chunk_subregion.start() < intersection.start() {
                     chunk_chars
-                        .span(intersection.start - chunk_subregion.start)
+                        .span(intersection.start() - chunk_subregion.start())
                         .push_to(&mut chunk_spans);
                 }
 
+                // NOTE: yield the intersection
                 chunk_chars
                     .span(intersection.len())
                     .reversed()
                     .push_to(&mut chunk_spans);
 
-                chunk_subregion.start = intersection.end;
+                // NOTE: update the current chunk remainder so that it begins after the end of the intersection
+                chunk_subregion_opt = chunk_subregion.with_start(intersection.end_exclusive());
             }
 
             chunk_spans.into()

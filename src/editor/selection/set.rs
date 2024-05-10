@@ -1,5 +1,5 @@
 use crate::{
-    editor::selection::selection::{Region, Selection},
+    editor::selection::{region::Region, selection::Selection},
     utils::any::Any,
 };
 use derive_more::From;

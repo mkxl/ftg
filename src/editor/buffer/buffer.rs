@@ -1,5 +1,5 @@
 use crate::{
-    editor::{buffer::search::SearchIter, selection::selection::Region},
+    editor::{buffer::search::SearchIter, selection::region::Region},
     utils::{any::Any, container::Identifiable, position::Position},
 };
 use derive_more::Constructor;
@@ -11,7 +11,7 @@ use ulid::Ulid;
 #[derive(Constructor)]
 pub struct Chunk<'a> {
     slice: RopeSlice<'a>,
-    region: Region,
+    region: Option<Region>,
 }
 
 impl<'a> Chunk<'a> {
@@ -19,8 +19,8 @@ impl<'a> Chunk<'a> {
         self.slice.chars()
     }
 
-    pub fn region(&self) -> &Region {
-        &self.region
+    pub fn region(&self) -> Option<Region> {
+        self.region
     }
 }
 
@@ -64,7 +64,8 @@ impl Buffer {
                 let end = begin.saturating_add(area.width as usize).min(len_chars);
                 let begin = begin.min(end);
                 let slice = line_slice.slice(begin..end);
-                let region = (line_char_idx + begin)..(line_char_idx + end);
+                let region = Region::ie(line_char_idx + begin, line_char_idx + end);
+
                 let chunk = Chunk::new(slice, region);
 
                 line_char_idx += len_chars;
