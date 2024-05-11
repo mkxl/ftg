@@ -4,7 +4,7 @@ use crate::{
 };
 use derive_more::Constructor;
 use ratatui::layout::Rect;
-use ropey::{iter::Chars, Rope, RopeSlice};
+use ropey::{iter::Chars, Error as RopeyError, Rope, RopeSlice};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
@@ -76,6 +76,10 @@ impl Buffer {
 
     pub fn len_lines(&self) -> usize {
         self.rope.len_lines()
+    }
+
+    pub fn insert_char(&mut self, char_idx: usize, chr: char) -> Result<(), RopeyError> {
+        self.rope.try_insert_char(char_idx, chr)
     }
 }
 

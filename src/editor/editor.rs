@@ -130,7 +130,7 @@ impl Editor {
             (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
             (Context::Buffer, Ok(Command::MoveRight)) => view.move_right(),
             (Context::Buffer, Ok(Command::Search)) => view.begin_search(),
-            (Context::Buffer, Err(&[key_pattern!(chr)])) => view.insert_character(buffer, chr),
+            (Context::Buffer, Err(&[key_pattern!(chr)])) => view.insert_char(buffer, chr),
             (Context::Search, Ok(Command::Submit)) => view.submit_search(buffer),
             (Context::Search, Ok(Command::Close)) => view.close_search(),
             (Context::Search, Err(&[key_pattern!(chr)])) => view.push_search(chr),

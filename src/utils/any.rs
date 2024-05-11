@@ -137,6 +137,10 @@ pub trait Any: Sized {
         Mutex::new(self)
     }
 
+    fn none<T>(&self) -> Option<T> {
+        None
+    }
+
     fn ok<E>(self) -> Result<Self, E> {
         Ok(self)
     }
@@ -212,6 +216,16 @@ pub trait Any: Sized {
     }
 
     fn unit(self) {}
+
+    fn warn<T, E: Display>(self) -> Option<T>
+    where
+        Self: Into<Result<T, E>>,
+    {
+        match self.into() {
+            Ok(value) => value.some(),
+            Err(error) => tracing::warn!(%error).none(),
+        }
+    }
 
     fn with<T>(&self, value: T) -> T {
         value

@@ -198,8 +198,10 @@ impl View {
         self.context = Context::Buffer;
     }
 
-    pub fn insert_character(&mut self, buffer: &mut Buffer, chr: char) {
-        tracing::info!(message = "insert_character", position = ?self.position, char = %chr);
+    pub fn insert_char(&mut self, buffer: &mut Buffer, chr: char) {
+        let char_idx = self.selection_set.primary().iter().next().unwrap().start();
+
+        buffer.insert_char(char_idx, chr).warn();
     }
 }
 
