@@ -2,7 +2,7 @@ use crate::{
     editor::{
         buffer::buffer::{Buffer, Chunk},
         keymap::Context,
-        selection::{region::Region, set::SelectionSet},
+        selection::{region::Region, selection::Selection, set::SelectionSet},
         terminal::Terminal,
         view::search::Search,
         window::{Window, WindowArgs},
@@ -32,7 +32,7 @@ impl View {
         let id = Ulid::new();
         let terminal = Terminal::new(args.size.rect());
         let position = Position::zero();
-        let selection_set = Region::ii(0, 0).unwrap().into();
+        let selection_set = Region::unit(0).into();
         let context = Context::Buffer;
         let search = Search::default();
         let view = Self {
@@ -199,9 +199,20 @@ impl View {
     }
 
     pub fn insert_char(&mut self, buffer: &mut Buffer, chr: char) {
-        let char_idx = self.selection_set.primary().iter().next().unwrap().start();
+        let selection = self.selection_set.primary_mut();
+        let mut new_selection = Selection::default();
+        let len_chars = 1;
 
-        buffer.insert_char(char_idx, chr).warn();
+        for (region_idx, region) in selection.iter().enumerate() {
+            let diff = region_idx.saturating_mul(len_chars);
+            let insert_idx = region.start().saturating_add(diff);
+            let new_region = Region::unit(insert_idx.saturating_add(1));
+
+            buffer.insert_char(insert_idx, chr).warn();
+            new_selection.insert(new_region);
+        }
+
+        selection.replace_with(new_selection);
     }
 }
 

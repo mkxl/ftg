@@ -1,11 +1,9 @@
-host: 0.0.0.0
-port: 8080
 keymap:
   - { keys: [up], command: move_up }
   - { keys: [down], command: move_down }
   - { keys: [left], command: move_left }
   - { keys: [right], command: move_right }
   - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }
-  - { keys: [f], command: search }
+  - { keys: [ctrl+w], command: search }
   - { keys: [esc], command: close, contexts: [search] }
   - { keys: [enter], command: submit, contexts: [search] }

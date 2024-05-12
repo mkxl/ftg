@@ -172,6 +172,10 @@ pub trait Any: Sized {
         Rect::new(0, 0, width, height)
     }
 
+    fn replace_with(&mut self, src: Self) -> Self {
+        std::mem::replace(self, src)
+    }
+
     fn rope(&self) -> Result<Rope, IoError>
     where
         Self: AsRef<Path>,

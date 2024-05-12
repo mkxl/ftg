@@ -13,6 +13,10 @@ impl SelectionSet {
     pub fn primary(&self) -> &Selection {
         &self.selections[0]
     }
+
+    pub fn primary_mut(&mut self) -> &mut Selection {
+        &mut self.selections[0]
+    }
 }
 
 impl From<Region> for SelectionSet {

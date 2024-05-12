@@ -19,6 +19,10 @@ impl Region {
         }
     }
 
+    pub fn unit(start: usize) -> Self {
+        Self::ii(start, start).unwrap()
+    }
+
     pub fn ii(start: usize, end: usize) -> Option<Self> {
         Self::from_values(start, end, false)
     }

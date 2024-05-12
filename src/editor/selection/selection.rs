@@ -2,12 +2,18 @@ use crate::{editor::selection::region::Region, utils::any::Any};
 use derive_more::From;
 use nodit::NoditSet;
 
-#[derive(From)]
+#[derive(Default, From)]
 pub struct Selection {
     regions: NoditSet<usize, Region>,
 }
 
 impl Selection {
+    pub fn insert(&mut self, region: Region) -> &mut Self {
+        self.regions.insert_merge_touching_or_overlapping(region);
+
+        self
+    }
+
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Region> {
         return self.regions.iter();
     }
@@ -22,12 +28,12 @@ impl From<Region> for Selection {
 impl FromIterator<Region> for Selection {
     fn from_iter<T: IntoIterator<Item = Region>>(iter: T) -> Self {
         // NOTE: curious that NoditSet does not implement FromIterator
-        let mut regions = NoditSet::new();
+        let mut selection = Selection::default();
 
         for region in iter {
-            regions.insert_merge_touching_or_overlapping(region);
+            selection.insert(region);
         }
 
-        regions.into()
+        selection
     }
 }

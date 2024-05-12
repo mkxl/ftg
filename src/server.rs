@@ -65,7 +65,7 @@ impl Server {
     }
 
     pub fn default_port() -> u16 {
-        8080
+        3742
     }
 
     fn init_tracing() {
