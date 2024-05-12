@@ -1,5 +1,5 @@
 use crate::{
-    cli::ServerArgs,
+    cli_args::CliArgs,
     config::Config,
     editor::{editor::Editor, window::WindowArgs},
     error::Error,
@@ -16,7 +16,8 @@ use poem::{
     EndpointExt, Error as PoemError, Route, Server as PoemServer,
 };
 use poem_openapi::{param::Header, OpenApi, OpenApiService};
-use std::{fmt::Display, net::Ipv4Addr, sync::Arc};
+use std::{fmt::Display, io::Error as IoError, net::Ipv4Addr, sync::Arc, time::Duration};
+use tokio::task::JoinHandle;
 
 #[derive(Constructor)]
 pub struct Server {
@@ -31,26 +32,32 @@ impl Server {
     const DEFAULT_CONFIG_STR: &'static str = std::include_str!("config.yaml");
     // TODO: resolve
     // pub const WINDOW_ARGS_HEADER_NAME: &'static str = "x-ftg-window-args";
+    pub const DEFAULT_HOST: Ipv4Addr = Ipv4Addr::UNSPECIFIED;
+    pub const DEFAULT_PORT: u16 = 3742;
     pub const WINDOW_ARGS_HEADER_NAME: &'static str = "window_args";
 
-    pub async fn serve(server_args: ServerArgs) -> Result<(), Error> {
+    pub async fn serve(cli_args: &CliArgs) -> Result<JoinHandle<Result<(), IoError>>, Error> {
         Self::init_tracing();
 
-        let config = Self::config(&server_args)?;
-        let address = (config.host, config.port);
+        let address = (cli_args.host, cli_args.port);
+        let config = Self::config(cli_args)?;
         let tcp_listener = TcpListener::bind(address);
         let poem_server = PoemServer::new(tcp_listener);
         let editor = Editor::new(config).mutex().arc();
         let server = Self::new(editor);
         let open_api_service = OpenApiService::new(server, Self::API_TITLE, Self::API_VERSION);
         let route = Route::new().nest(Self::API_PATH, open_api_service).with(Tracing);
+        let join_handle = tokio::spawn(poem_server.run(route));
+        let duration = Duration::from_millis(100);
 
-        poem_server.run(route).await?.ok()
+        tokio::time::sleep(duration).await;
+
+        join_handle.ok()
     }
 
-    fn config(server_args: &ServerArgs) -> Result<Config, Error> {
+    fn config(cli_args: &CliArgs) -> Result<Config, Error> {
         // TODO: why is the turbofish necessary
-        if let Some(config_filepath) = &server_args.config_filepath {
+        if let Some(config_filepath) = &cli_args.config_filepath {
             config_filepath
                 .read_to_string()?
                 .deserialize_from_yaml::<Config>()?
@@ -60,16 +67,8 @@ impl Server {
         }
     }
 
-    pub fn default_host() -> Ipv4Addr {
-        Ipv4Addr::UNSPECIFIED
-    }
-
-    pub fn default_port() -> u16 {
-        3742
-    }
-
     fn init_tracing() {
-        tracing_subscriber::fmt().json().init();
+        // tracing_subscriber::fmt().json().init();
     }
 
     async fn run(

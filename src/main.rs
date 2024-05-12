@@ -1,26 +1,28 @@
-mod cli;
+mod cli_args;
 mod client;
 mod config;
 mod editor;
 mod error;
-// mod serve;
 mod server;
 mod utils;
 
 use crate::{
-    cli::{Cli, Command},
+    cli_args::{CliArgs, Command},
+    client::Client,
     error::Error,
+    server::Server,
     utils::any::Any,
 };
 use clap::Parser;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let cli = Cli::parse();
+    let cli_args = CliArgs::parse();
 
-    match cli.command {
-        Some(Command::Serve(args)) => args.serve().await?,
-        None => cli.client_args.run().await?,
+    match cli_args.command {
+        Some(Command::Debug) => {}
+        None if cli_args.serve => Server::serve(&cli_args).await?.await??,
+        None => Client::run(cli_args).await?,
     }
 
     ().ok()

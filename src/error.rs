@@ -1,9 +1,11 @@
 use derive_more::{Display, From};
 use http::{header::InvalidHeaderValue, Error as HttpError};
 use postcard::Error as PostcardError;
+use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
 use serde_yaml::Error as SerdeYamlError;
 use std::io::Error as IoError;
+use tokio::task::JoinError as TokioJoinError;
 use tokio_tungstenite::tungstenite::Error as TungsteniteError;
 
 // NOTE:
@@ -15,7 +17,9 @@ pub enum Error {
     InvalidHeaderValue(InvalidHeaderValue),
     Io(IoError),
     Postcard(PostcardError),
+    Reqwest(ReqwestError),
     SerdeJson(SerdeJsonError),
     SerdeYaml(SerdeYamlError),
+    TokioJoin(TokioJoinError),
     Tungstenite(TungsteniteError),
 }

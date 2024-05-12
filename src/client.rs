@@ -1,4 +1,4 @@
-use crate::{cli::ClientArgs, editor::window::WindowArgs, error::Error, server::Server, utils::any::Any};
+use crate::{cli_args::CliArgs, editor::window::WindowArgs, error::Error, server::Server, utils::any::Any};
 use crossterm::{
     cursor::{Hide, Show},
     event::EventStream,
@@ -7,7 +7,8 @@ use crossterm::{
 };
 use derive_more::From;
 use futures::StreamExt;
-use http::{HeaderValue, Uri};
+use http::HeaderValue;
+use reqwest::Client as ReqwestClient;
 use std::{
     io::{StdoutLock, Write},
     path::Path,
@@ -42,7 +43,7 @@ impl Client {
     }
 
     fn on_init(&mut self, log_filepath: Option<&Path>) -> Result<(), Error> {
-        Self::init_tracing(log_filepath)?;
+        // Self::init_tracing(log_filepath)?;
         crossterm::terminal::enable_raw_mode()?;
         self.stdout
             .queue(EnterAlternateScreen)?
@@ -60,17 +61,17 @@ impl Client {
         ().ok()
     }
 
-    fn window_args(client_args: &mut ClientArgs) -> Result<WindowArgs, Error> {
+    fn window_args(cli_args: &mut CliArgs) -> Result<WindowArgs, Error> {
         let size = crossterm::terminal::size()?;
-        let filepath = client_args.filepath.take();
+        let filepath = cli_args.filepath.take();
         let window_args = WindowArgs { size, filepath };
 
         window_args.ok()
     }
 
-    fn request(mut client_args: ClientArgs) -> Result<Request, Error> {
-        let window_args = Self::window_args(&mut client_args)?;
-        let mut request = client_args.server_address.into_client_request()?;
+    fn request(mut cli_args: CliArgs) -> Result<Request, Error> {
+        let window_args = Self::window_args(&mut cli_args)?;
+        let mut request = Self::url("ws", &cli_args).into_client_request()?;
         let window_args_header = window_args.serialize()?;
         let window_args_header = HeaderValue::from_str(&window_args_header)?;
 
@@ -81,10 +82,10 @@ impl Client {
         request.ok()
     }
 
-    pub async fn run(client_args: ClientArgs) -> Result<(), Error> {
-        let mut client = Client::new(client_args.log_filepath.as_deref())?;
+    async fn run_client(cli_args: CliArgs) -> Result<(), Error> {
+        let mut client = Client::new(cli_args.log_filepath.as_deref())?;
         let mut events = EventStream::new();
-        let request = Self::request(client_args)?;
+        let request = Self::request(cli_args)?;
         let (mut web_socket, _response) = tokio_tungstenite::connect_async(request).await?;
 
         loop {
@@ -109,14 +110,36 @@ impl Client {
         }
     }
 
-    pub fn default_server_address() -> Uri {
-        std::format!(
-            "ws://{host}:{port}",
-            host = Server::default_host(),
-            port = Server::default_port(),
-        )
-        .parse()
-        .unwrap()
+    fn url(protocol: &str, cli_args: &CliArgs) -> String {
+        std::format!("{protocol}://{host}:{port}", host = cli_args.host, port = cli_args.port)
+    }
+
+    async fn server_is_running(cli_args: &CliArgs) -> Result<bool, Error> {
+        let url = Self::url("http", cli_args);
+        let response_res = ReqwestClient::new().head(url).send().await;
+        let Err(reqwest_err) = response_res else {
+            return true.ok();
+        };
+
+        if reqwest_err.is_request() {
+            return false.ok();
+        }
+
+        Err(reqwest_err)?
+    }
+
+    pub async fn run(cli_args: CliArgs) -> Result<(), Error> {
+        if Self::server_is_running(&cli_args).await? {
+            Self::run_client(cli_args).await
+        } else {
+            let server_future = Server::serve(&cli_args).await?;
+            let client_future = Self::run_client(cli_args);
+
+            tokio::select! {
+                res = server_future => res??.ok(),
+                res = client_future => res,
+            }
+        }
     }
 }
 
