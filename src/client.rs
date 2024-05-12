@@ -11,7 +11,7 @@ use http::HeaderValue;
 use reqwest::Client as ReqwestClient;
 use std::{
     io::{StdoutLock, Write},
-    path::Path,
+    time::Duration,
 };
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, handshake::client::Request, Message};
 
@@ -21,29 +21,18 @@ pub struct Client {
 }
 
 impl Client {
-    fn new(log_filepath: Option<&Path>) -> Result<Self, Error> {
+    pub const DEFAULT_WAIT_FOR_SERVER_MILLIS: u64 = 100;
+
+    fn new() -> Result<Self, Error> {
         let stdout = std::io::stdout().lock();
         let mut client = Self { stdout };
 
-        client.on_init(log_filepath)?;
+        client.on_init()?;
 
         client.ok()
     }
 
-    fn init_tracing(log_filepath: Option<&Path>) -> Result<(), Error> {
-        let Some(log_filepath) = log_filepath else {
-            return ().ok();
-        };
-        let log_file = log_filepath.create()?;
-
-        // TODO: consider using tracing-appender for writing to a file
-        tracing_subscriber::fmt().with_writer(log_file).json().init();
-
-        ().ok()
-    }
-
-    fn on_init(&mut self, log_filepath: Option<&Path>) -> Result<(), Error> {
-        // Self::init_tracing(log_filepath)?;
+    fn on_init(&mut self) -> Result<(), Error> {
         crossterm::terminal::enable_raw_mode()?;
         self.stdout
             .queue(EnterAlternateScreen)?
@@ -61,18 +50,19 @@ impl Client {
         ().ok()
     }
 
-    fn window_args(cli_args: &mut CliArgs) -> Result<WindowArgs, Error> {
+    fn window_args(cli_args: CliArgs) -> Result<WindowArgs, Error> {
         let size = crossterm::terminal::size()?;
-        let filepath = cli_args.filepath.take();
-        let window_args = WindowArgs { size, filepath };
+        let window_args = WindowArgs {
+            size,
+            filepath: cli_args.filepath,
+        };
 
         window_args.ok()
     }
 
-    fn request(mut cli_args: CliArgs) -> Result<Request, Error> {
-        let window_args = Self::window_args(&mut cli_args)?;
+    fn request(cli_args: CliArgs) -> Result<Request, Error> {
         let mut request = Self::url("ws", &cli_args).into_client_request()?;
-        let window_args_header = window_args.serialize()?;
+        let window_args_header = Self::window_args(cli_args)?.serialize()?;
         let window_args_header = HeaderValue::from_str(&window_args_header)?;
 
         request
@@ -83,7 +73,7 @@ impl Client {
     }
 
     async fn run_client(cli_args: CliArgs) -> Result<(), Error> {
-        let mut client = Client::new(cli_args.log_filepath.as_deref())?;
+        let mut client = Client::new()?;
         let mut events = EventStream::new();
         let request = Self::request(cli_args)?;
         let (mut web_socket, _response) = tokio_tungstenite::connect_async(request).await?;
@@ -132,11 +122,22 @@ impl Client {
         if Self::server_is_running(&cli_args).await? {
             Self::run_client(cli_args).await
         } else {
-            let server_future = Server::serve(&cli_args).await?;
+            // TODO: figure out clone here
+            let duration = Duration::from_millis(cli_args.wait_for_server_millis);
+            let server_cli_args = cli_args.clone();
+            let server_future = Server::serve(&server_cli_args);
             let client_future = Self::run_client(cli_args);
 
+            // NOTE: Any::run_for() requires Self: Unpin, but by construction server_future does not implement Unpin
+            // necessitating futures::pin_mut!()
+            futures::pin_mut!(server_future);
+
+            if let Some(result) = server_future.run_for(duration).await {
+                return result;
+            }
+
             tokio::select! {
-                res = server_future => res??.ok(),
+                res = server_future => res,
                 res = client_future => res,
             }
         }

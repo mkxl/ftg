@@ -11,12 +11,14 @@ use serde_yaml::Error as SerdeYamlError;
 use std::{
     fmt::Display,
     fs::File,
+    future::Future,
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufReader, BufWriter, Error as IoError, Read, Write},
     iter::Once,
     os::unix::fs::MetadataExt,
     path::Path,
     sync::Arc,
+    time::Duration,
 };
 use ulid::Ulid;
 
@@ -188,6 +190,16 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         Rope::from_reader(self.open()?.buf_reader())
+    }
+
+    async fn run_for(&mut self, duration: Duration) -> Option<Self::Output>
+    where
+        Self: Future + Unpin,
+    {
+        tokio::select! {
+            output = self => output.some(),
+            _res = tokio::time::sleep(duration) => None,
+        }
     }
 
     fn saturating_sub(self, dx: u16, dy: u16) -> Rect

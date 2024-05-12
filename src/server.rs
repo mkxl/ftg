@@ -16,8 +16,7 @@ use poem::{
     EndpointExt, Error as PoemError, Route, Server as PoemServer,
 };
 use poem_openapi::{param::Header, OpenApi, OpenApiService};
-use std::{fmt::Display, io::Error as IoError, net::Ipv4Addr, sync::Arc, time::Duration};
-use tokio::task::JoinHandle;
+use std::{fmt::Display, net::Ipv4Addr, sync::Arc};
 
 #[derive(Constructor)]
 pub struct Server {
@@ -36,9 +35,7 @@ impl Server {
     pub const DEFAULT_PORT: u16 = 3742;
     pub const WINDOW_ARGS_HEADER_NAME: &'static str = "window_args";
 
-    pub async fn serve(cli_args: &CliArgs) -> Result<JoinHandle<Result<(), IoError>>, Error> {
-        Self::init_tracing();
-
+    pub async fn serve(cli_args: &CliArgs) -> Result<(), Error> {
         let address = (cli_args.host, cli_args.port);
         let config = Self::config(cli_args)?;
         let tcp_listener = TcpListener::bind(address);
@@ -47,12 +44,8 @@ impl Server {
         let server = Self::new(editor);
         let open_api_service = OpenApiService::new(server, Self::API_TITLE, Self::API_VERSION);
         let route = Route::new().nest(Self::API_PATH, open_api_service).with(Tracing);
-        let join_handle = tokio::spawn(poem_server.run(route));
-        let duration = Duration::from_millis(100);
 
-        tokio::time::sleep(duration).await;
-
-        join_handle.ok()
+        poem_server.run(route).await?.ok()
     }
 
     fn config(cli_args: &CliArgs) -> Result<Config, Error> {
@@ -65,10 +58,6 @@ impl Server {
         } else {
             Self::DEFAULT_CONFIG_STR.deserialize_from_yaml::<Config>()?.ok()
         }
-    }
-
-    fn init_tracing() {
-        // tracing_subscriber::fmt().json().init();
     }
 
     async fn run(

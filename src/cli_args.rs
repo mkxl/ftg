@@ -1,14 +1,17 @@
-use crate::server::Server;
+use crate::{client::Client, server::Server};
 use clap::{Parser, Subcommand};
 use std::{net::Ipv4Addr, path::PathBuf};
 
-#[derive(Parser)]
+#[derive(Clone, Parser)]
 pub struct CliArgs {
     #[command(subcommand)]
     pub command: Option<Command>,
 
     #[arg(long)]
-    pub serve: bool,
+    pub serve_only: bool,
+
+    #[arg(default_value_t = Client::DEFAULT_WAIT_FOR_SERVER_MILLIS, long = "wait-ms")]
+    pub wait_for_server_millis: u64,
 
     #[arg(default_value_t = Server::DEFAULT_HOST, long)]
     pub host: Ipv4Addr,
@@ -25,7 +28,7 @@ pub struct CliArgs {
     pub filepath: Option<PathBuf>,
 }
 
-#[derive(Subcommand)]
+#[derive(Clone, Subcommand)]
 pub enum Command {
     Debug,
 }
