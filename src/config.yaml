@@ -5,5 +5,6 @@ keymap:
   - { keys: [right], command: move_right }
   - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }
   - { keys: [ctrl+w], command: search }
+  - { keys: [ctrl+e], command: save }
   - { keys: [esc], command: close, contexts: [search] }
   - { keys: [enter], command: submit, contexts: [search] }

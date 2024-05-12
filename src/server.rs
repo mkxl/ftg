@@ -81,8 +81,8 @@ impl Server {
 
         loop {
             // NOTE: i want to always operate on the next websocket message, if present, and if not, send the bytes to
-            // the client; i can't use the the tokio::select! else branch bc it waits for the first future to complete
-            // and checks if the branch is valid before falling back to the else branch; bc of this we use
+            // the client; i can't use the the tokio::select! else branch bc tokio waits for the first future to
+            // complete and checks if the branch is valid before falling back to the else branch; bc of this we use
             // std::future::ready(()) instead and yield if no bytes are to be written [a47d22]
             tokio::select! {
                 biased;

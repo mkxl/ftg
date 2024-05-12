@@ -1,6 +1,6 @@
 use crate::{
     editor::{
-        buffer::buffer::{Buffer, Chunk},
+        buffer::buffer::{Buffer, SubLine},
         keymap::Context,
         selection::{region::Region, selection::Selection, set::SelectionSet},
         terminal::Terminal,
@@ -11,7 +11,7 @@ use crate::{
     utils::{any::Any, container::Identifiable, position::Position},
 };
 use ratatui::{style::Stylize, text::Line, widgets::Paragraph};
-use std::{ffi::OsStr, path::Path};
+use std::{ffi::OsStr, io::Error as IoError, path::Path};
 use ulid::Ulid;
 
 pub struct View {
@@ -76,74 +76,79 @@ impl View {
         self.position.x = self.position.x.saturating_add(1);
     }
 
-    fn lines<'a, C: 'a + Iterator<Item = Chunk<'a>>>(
+    fn lines<'a, I: 'a + Iterator<Item = SubLine<'a>>>(
         selection_set: &'a SelectionSet,
-        chunks: C,
+        sub_lines: I,
     ) -> impl 'a + Iterator<Item = Line<'a>> {
         let mut selection_regions = selection_set.primary().iter();
         let mut selection_region_opt = selection_regions.next();
 
-        chunks.map(move |chunk| {
+        sub_lines.map(move |sub_line| {
             // NOTE:
-            // - we call chunk.chars() and process the Chars iterator to avoid the O(log N) [1] cost of having to index
-            //   into the chunk rope slice multiple times
+            // - we call sub_line.chars() and process the Chars iterator to avoid the O(log N) [1] cost of having to
+            //   index into the sub_line rope slice multiple times
             // - see [2] for the source of the implementation
             // - [1]: [https://docs.rs/ropey/latest/ropey/struct.Rope.html#method.slice]
             // - [2]: [~/tree/projects/.scratch/python/notebooks/2024-05-07-chunks.ipynb]
-            let mut chunk_subregion_opt = chunk.region();
-            let mut chunk_chars = chunk.chars();
-            let mut chunk_spans = std::vec![];
+            let mut sub_line_sub_region_opt = sub_line.region();
+            let mut sub_line_chars = sub_line.chars();
+            let mut sub_line_spans = std::vec![];
 
             loop {
-                // NOTE: if the current chunk remainder is empty, then i'm done processing the chunk, and i can
-                // continue onto the next chunk
-                let Some(chunk_subregion) = chunk_subregion_opt else {
+                // NOTE: if the current sub_line remainder is empty, then i'm done processing the sub_line, and i can
+                // continue onto the next sub_line
+                let Some(sub_line_sub_region) = sub_line_sub_region_opt else {
                     break;
                 };
 
-                // NOTE: if there are no more selection regions, yield the current chunk remainder and continue
-                // onto the next chunk
+                // NOTE: if there are no more selection regions, yield the current sub_line remainder and continue
+                // onto the next sub_line
                 let Some(selection_region) = &selection_region_opt else {
-                    chunk_chars.span(chunk_subregion.len()).push_to(&mut chunk_spans);
+                    sub_line_chars
+                        .span(sub_line_sub_region.len())
+                        .push_to(&mut sub_line_spans);
 
                     break;
                 };
 
-                let Some(intersection) = selection_region.intersect(&chunk_subregion) else {
-                    // NOTE: chunk_subregion is nonempty, so if the intersection is empty and selection_region
-                    // is to the left of chunk_subregion, then selection_region must end before chunk_subregion
+                let Some(intersection) = selection_region.intersect(&sub_line_sub_region) else {
+                    // NOTE: sub_line_sub_region is nonempty, so if the intersection is empty and selection_region
+                    // is to the left of sub_line_sub_region, then selection_region must end before sub_line_sub_region
                     // begins, and i can skip to the next selection_region
-                    if selection_region.start() < chunk_subregion.start() {
+                    if selection_region.start() < sub_line_sub_region.start() {
                         selection_region_opt = selection_regions.next();
 
                         continue;
                     }
 
-                    // NOTE: otherwise, selection_region is to the right of chunk_subregion, and i can skip to the next
-                    // chunk after first yielding the current chunk remainder
-                    chunk_chars.span(chunk_subregion.len()).push_to(&mut chunk_spans);
+                    // NOTE: otherwise, selection_region is to the right of sub_line_sub_region, and i can skip to the
+                    // next sub_line after first yielding the current sub_line remainder
+                    sub_line_chars
+                        .span(sub_line_sub_region.len())
+                        .push_to(&mut sub_line_spans);
 
                     break;
                 };
 
-                // NOTE: if the beginning of the current chunk remainder is not included in the intersection, yield it
-                if chunk_subregion.start() < intersection.start() {
-                    chunk_chars
-                        .span(intersection.start() - chunk_subregion.start())
-                        .push_to(&mut chunk_spans);
+                // NOTE: if the beginning of the current sub_line remainder is not included in the intersection, yield
+                // it
+                if sub_line_sub_region.start() < intersection.start() {
+                    sub_line_chars
+                        .span(intersection.start() - sub_line_sub_region.start())
+                        .push_to(&mut sub_line_spans);
                 }
 
                 // NOTE: yield the intersection
-                chunk_chars
+                sub_line_chars
                     .span(intersection.len())
                     .reversed()
-                    .push_to(&mut chunk_spans);
+                    .push_to(&mut sub_line_spans);
 
-                // NOTE: update the current chunk remainder so that it begins after the end of the intersection
-                chunk_subregion_opt = chunk_subregion.with_start(intersection.end_exclusive());
+                // NOTE: update the current sub_line remainder so that it begins after the end of the intersection
+                sub_line_sub_region_opt = sub_line_sub_region.with_start(intersection.end_exclusive());
             }
 
-            chunk_spans.into()
+            sub_line_spans.into()
         })
     }
 
@@ -158,8 +163,8 @@ impl View {
             .reversed()
             .convert::<Line>();
         let area = self.terminal.area().saturating_sub(0, 1);
-        let chunks = buffer.chunks(&self.position, area);
-        let lines = Self::lines(&self.selection_set, chunks);
+        let sub_lines = buffer.sub_lines(&self.position, area);
+        let lines = Self::lines(&self.selection_set, sub_lines);
         let lines = title_line.once().chain(lines).collect::<Vec<_>>();
         let paragraph = Paragraph::new(lines);
 
@@ -213,6 +218,14 @@ impl View {
         }
 
         selection.replace_with(new_selection);
+    }
+
+    pub fn save(&self, buffer: &Buffer) -> Result<(), IoError> {
+        let Some(filepath) = self.args.filepath.as_ref() else {
+            return ().ok();
+        };
+
+        filepath.create()?.buf_writer().write_iter(buffer.chunks())?.ok()
     }
 }
 

@@ -4,17 +4,20 @@ use crate::{
 };
 use derive_more::Constructor;
 use ratatui::layout::Rect;
-use ropey::{iter::Chars, Error as RopeyError, Rope, RopeSlice};
+use ropey::{
+    iter::{Chars, Chunks},
+    Error as RopeyError, Rope, RopeSlice,
+};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
 #[derive(Constructor)]
-pub struct Chunk<'a> {
+pub struct SubLine<'a> {
     slice: RopeSlice<'a>,
     region: Option<Region>,
 }
 
-impl<'a> Chunk<'a> {
+impl<'a> SubLine<'a> {
     pub fn chars(&self) -> Chars {
         self.slice.chars()
     }
@@ -43,7 +46,7 @@ impl Buffer {
         SearchIter::new(&self.rope, query)
     }
 
-    pub fn chunks<'a>(&'a self, position: &'a Position, area: Rect) -> impl 'a + Iterator<Item = Chunk<'a>> {
+    pub fn sub_lines<'a>(&'a self, position: &'a Position, area: Rect) -> impl 'a + Iterator<Item = SubLine<'a>> {
         // TODO:
         // - is there a more efficient way of getting the char_idx of the position.y-th line?
         // - i don't like that i need to call .line_to_char() bc .get_lines_at() doesn't contain that information bc
@@ -66,11 +69,11 @@ impl Buffer {
                 let slice = line_slice.slice(begin..end);
                 let region = Region::ie(line_char_idx + begin, line_char_idx + end);
 
-                let chunk = Chunk::new(slice, region);
+                let sub_line = SubLine::new(slice, region);
 
                 line_char_idx += len_chars;
 
-                chunk
+                sub_line
             })
     }
 
@@ -80,6 +83,10 @@ impl Buffer {
 
     pub fn insert_char(&mut self, char_idx: usize, chr: char) -> Result<(), RopeyError> {
         self.rope.try_insert_char(char_idx, chr)
+    }
+
+    pub fn chunks(&self) -> Chunks {
+        self.rope.chunks()
     }
 }
 

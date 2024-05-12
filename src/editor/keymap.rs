@@ -12,6 +12,7 @@ pub enum Command {
     MoveLeft,
     MoveRight,
     Quit,
+    Save,
     Search,
     Submit,
 }

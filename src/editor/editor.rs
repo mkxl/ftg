@@ -126,6 +126,7 @@ impl Editor {
             (Context::Buffer, Ok(Command::MoveDown)) => view.move_down(buffer),
             (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
             (Context::Buffer, Ok(Command::MoveRight)) => view.move_right(),
+            (Context::Buffer, Ok(Command::Save)) => view.save(buffer).warn().unit(),
             (Context::Buffer, Ok(Command::Search)) => view.begin_search(),
             (Context::Buffer, Err(&[key_pattern!(chr)])) => view.insert_char(buffer, chr),
             (Context::Search, Ok(Command::Submit)) => view.submit_search(buffer),
