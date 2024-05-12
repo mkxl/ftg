@@ -128,18 +128,14 @@ impl Client {
             let server_future = Server::serve(&server_cli_args);
             let client_future = Self::run_client(cli_args);
 
-            // NOTE: Any::run_for() requires Self: Unpin, but by construction server_future does not implement Unpin
-            // necessitating futures::pin_mut!()
-            futures::pin_mut!(server_future);
+            // NOTE-c9481a: server_future and client_future do not implement Unpin necessitating futures::pin_mut!()
+            futures::pin_mut!(server_future, client_future);
 
             if let Some(result) = server_future.run_for(duration).await {
                 return result;
             }
 
-            tokio::select! {
-                res = server_future => res,
-                res = client_future => res,
-            }
+            server_future.select(client_future).await
         }
     }
 }

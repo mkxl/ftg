@@ -192,6 +192,7 @@ pub trait Any: Sized {
         Rope::from_reader(self.open()?.buf_reader())
     }
 
+    // NOTE-c9481a: for &mut Self to implement Future, Self must implement Unpin
     async fn run_for(&mut self, duration: Duration) -> Option<Self::Output>
     where
         Self: Future + Unpin,
@@ -214,6 +215,13 @@ pub trait Any: Sized {
             width: width.saturating_sub(dx),
             height: height.saturating_sub(dy),
         }
+    }
+
+    async fn select<F: Unpin + Future<Output = Self::Output>>(&mut self, other: F) -> Self::Output
+    where
+        Self: Future + Unpin,
+    {
+        futures::future::select(self, other).await.factor_first().0
     }
 
     async fn send_to<S: Unpin + Sink<Self>>(self, mut sink: S) -> Result<(), S::Error> {
