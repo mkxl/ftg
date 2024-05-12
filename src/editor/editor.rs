@@ -108,9 +108,6 @@ impl Editor {
     }
 
     pub fn feed(&mut self, window_id: &Ulid, event: Event) -> Result<bool, Error> {
-        // TODO: remove; currently log for debugging purposes for when the client hangs
-        tracing::info!(feed_event = ?event);
-
         // NOTE: use get_mut!() macro rather than self.get_mut() method to prevent
         // `cannot borrow `self.keymap` as immutable because it is also borrowed as mutable`
         let GetMut {

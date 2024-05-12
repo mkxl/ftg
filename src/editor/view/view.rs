@@ -71,7 +71,7 @@ impl View {
         self.position.x = self.position.x.saturating_sub(1);
     }
 
-    // TODO: need to find max value (requires getting length of each line)
+    // TODO: need to find max value (requires getting length of each line that's being rendered)
     pub fn move_right(&mut self) {
         self.position.x = self.position.x.saturating_add(1);
     }

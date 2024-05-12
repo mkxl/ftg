@@ -103,14 +103,7 @@ impl Client {
 
                     // TODO: figure out why this doesn't work
                     // - [event_res?.encode()?.into().send_to(&mut sink).await?;]
-                    // event_res?.encode()?.convert::<Message>().send_to(&mut web_socket).await?; [02db07]
-
-                    // TODO: restore [02db07]
-                    let event = event_res?;
-
-                    event.encode()?.convert::<Message>().send_to(&mut web_socket).await?;
-
-                    tracing::info!(?event);
+                    event_res?.encode()?.convert::<Message>().send_to(&mut web_socket).await?;
                 }
             }
         }

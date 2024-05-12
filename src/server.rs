@@ -16,8 +16,7 @@ use poem::{
     EndpointExt, Error as PoemError, Route, Server as PoemServer,
 };
 use poem_openapi::{param::Header, OpenApi, OpenApiService};
-use serde_json::Error as SerdeJsonError;
-use std::{net::Ipv4Addr, sync::Arc};
+use std::{fmt::Display, net::Ipv4Addr, sync::Arc};
 
 #[derive(Constructor)]
 pub struct Server {
@@ -81,13 +80,13 @@ impl Server {
         let window_id = editor.lock().new_window(window_args)?;
 
         loop {
-            // NOTE: can't use else branch bc tokio::select! waits for the first future to complete and checks if the
-            // branch is valid before falling back to the else branch; bc of this, we use std::future::ready(()) instead
+            // NOTE: i want to always operate on the next websocket message, if present, and if not, send the bytes to
+            // the client; i can't use the the tokio::select! else branch bc it waits for the first future to complete
+            // and checks if the branch is valid before falling back to the else branch; bc of this we use
+            // std::future::ready(()) instead and yield if no bytes are to be written [a47d22]
             tokio::select! {
+                biased;
                 message_res_opt = web_socket_stream.next() => {
-                    // TODO: [02db07]
-                    tracing::info!("received message from client");
-
                     let Some(message_res) = message_res_opt else { break; };
                     let end = match message_res? {
                         Message::Binary(bytes) => editor.lock().feed(&window_id, bytes.decode()?)?,
@@ -102,18 +101,21 @@ impl Server {
                 () = std::future::ready(()) => {
                     let Some(bytes) = editor.lock().render(&window_id)? else { std::todo!(); };
 
-                    if !bytes.is_empty() {
+                    if bytes.is_empty() {
+                        tokio::task::yield_now().await;
+                    } else {
                         bytes.binary_message().send_to(&mut web_socket_stream).await?;
                     }
                 }
             }
         }
 
+        tracing::info!(ending_session_for_window_id = %window_id);
+
         ().ok()
     }
 
-    #[allow(clippy::needless_pass_by_value)]
-    fn deserialization_poem_error(err: SerdeJsonError) -> PoemError {
+    fn bad_request(err: impl Display) -> PoemError {
         PoemError::from_string(err.to_string(), StatusCode::BAD_REQUEST)
     }
 
@@ -125,11 +127,9 @@ impl Server {
         web_socket: WebSocket,
         Header(window_args): Header<String>,
     ) -> Result<WebSocketUpgraded, PoemError> {
-        let window_args = window_args
-            .deserialize_from_json()
-            .map_err(Self::deserialization_poem_error)?;
+        let window_args = window_args.deserialize_from_json().map_err(Self::bad_request)?;
         let editor = self.editor.clone();
-        let web_socket_upgraded = web_socket.on_upgrade(|web_socket_stream| async move {
+        let web_socket_upgraded = web_socket.on_upgrade(|web_socket_stream| async {
             Self::run(window_args, editor, web_socket_stream).await.error();
         });
 
