@@ -84,7 +84,7 @@ impl View {
         let mut selection_region_opt = selection_regions.next();
 
         sub_lines.map(move |sub_line| {
-            // NOTE:
+            // NOTE-ad63f1:
             // - we call sub_line.chars() and process the Chars iterator to avoid the O(log N) [1] cost of having to
             //   index into the sub_line rope slice multiple times
             // - see [2] for the source of the implementation

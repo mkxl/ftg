@@ -18,7 +18,6 @@ use std::{
     os::unix::fs::MetadataExt,
     path::Path,
     sync::Arc,
-    time::Duration,
 };
 use ulid::Ulid;
 
@@ -190,17 +189,6 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         Rope::from_reader(self.open()?.buf_reader())
-    }
-
-    // NOTE-c9481a: for &mut Self to implement Future, Self must implement Unpin
-    async fn run_for(&mut self, duration: Duration) -> Option<Self::Output>
-    where
-        Self: Future + Unpin,
-    {
-        tokio::select! {
-            output = self => output.some(),
-            _res = tokio::time::sleep(duration) => None,
-        }
     }
 
     fn saturating_sub(self, dx: u16, dy: u16) -> Rect

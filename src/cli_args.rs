@@ -1,4 +1,4 @@
-use crate::{client::Client, server::Server};
+use crate::server::Server;
 use clap::{Parser, Subcommand};
 use std::{net::Ipv4Addr, path::PathBuf};
 
@@ -9,9 +9,6 @@ pub struct CliArgs {
 
     #[arg(long)]
     pub serve_only: bool,
-
-    #[arg(default_value_t = Client::DEFAULT_WAIT_FOR_SERVER_MILLIS, long = "wait-ms")]
-    pub wait_for_server_millis: u64,
 
     #[arg(default_value_t = Server::DEFAULT_HOST, long)]
     pub host: Ipv4Addr,

@@ -9,10 +9,7 @@ use derive_more::From;
 use futures::StreamExt;
 use http::HeaderValue;
 use reqwest::Client as ReqwestClient;
-use std::{
-    io::{StdoutLock, Write},
-    time::Duration,
-};
+use std::io::{StdoutLock, Write};
 use tokio_tungstenite::tungstenite::{client::IntoClientRequest, handshake::client::Request, Message};
 
 #[derive(From)]
@@ -21,8 +18,6 @@ pub struct Client {
 }
 
 impl Client {
-    pub const DEFAULT_WAIT_FOR_SERVER_MILLIS: u64 = 100;
-
     fn new() -> Result<Self, Error> {
         let stdout = std::io::stdout().lock();
         let mut client = Self { stdout };
@@ -123,17 +118,12 @@ impl Client {
             Self::run_client(cli_args).await
         } else {
             // TODO: figure out clone here
-            let duration = Duration::from_millis(cli_args.wait_for_server_millis);
             let server_cli_args = cli_args.clone();
             let server_future = Server::serve(&server_cli_args);
             let client_future = Self::run_client(cli_args);
 
             // NOTE-c9481a: server_future and client_future do not implement Unpin necessitating futures::pin_mut!()
             futures::pin_mut!(server_future, client_future);
-
-            if let Some(result) = server_future.run_for(duration).await {
-                return result;
-            }
 
             server_future.select(client_future).await
         }
