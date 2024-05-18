@@ -123,7 +123,7 @@ impl Editor {
             (_, Ok(Command::Quit)) => return true.ok(),
             (_, Err(&[Event::Resize(width, height)])) => view.resize(width, height)?,
             (Context::Buffer, Ok(Command::MoveUp)) => view.move_up(),
-            (Context::Buffer, Ok(Command::MoveDown)) => view.move_down(buffer),
+            (Context::Buffer, Ok(Command::MoveDown)) => view.move_down(buffer, 1),
             (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
             (Context::Buffer, Ok(Command::MoveRight)) => view.move_right(),
             (Context::Buffer, Ok(Command::Save)) => view.save(buffer).warn().unit(),

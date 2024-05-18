@@ -1,6 +1,7 @@
 keymap:
   - { keys: [up], command: move_up }
-  - { keys: [down], command: move_down }
+  # - { keys: [down], command: move_down, args: { count: 1 } }
+  - { keys: [down], command: move_down, args: { count: 5 } }
   - { keys: [left], command: move_left }
   - { keys: [right], command: move_right }
   - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }

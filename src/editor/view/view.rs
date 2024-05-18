@@ -57,10 +57,10 @@ impl View {
         self.buffer_id
     }
 
-    pub fn move_down(&mut self, buffer: &Buffer) {
+    pub fn move_down(&mut self, buffer: &Buffer, count: usize) {
         let max_y = buffer.len_lines().saturating_sub(2);
 
-        self.position.y = self.position.y.saturating_add(1).min(max_y);
+        self.position.y = self.position.y.saturating_add(count).min(max_y);
     }
 
     pub fn move_up(&mut self) {
