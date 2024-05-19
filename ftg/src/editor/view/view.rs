@@ -93,6 +93,7 @@ impl View {
             let mut sub_line_sub_region_opt = sub_line.region();
             let mut sub_line_chars = sub_line.chars();
             let mut sub_line_spans = std::vec![];
+            let mut selection_region_on_this_line = false;
 
             loop {
                 // NOTE: if the current sub_line remainder is empty, then i'm done processing the sub_line, and i can
@@ -130,6 +131,8 @@ impl View {
                     break;
                 };
 
+                selection_region_on_this_line = true;
+
                 // NOTE: if the beginning of the current sub_line remainder is not included in the intersection, yield
                 // it
                 if sub_line_sub_region.start() < intersection.start() {
@@ -141,14 +144,20 @@ impl View {
                 // NOTE: yield the intersection
                 sub_line_chars
                     .span(intersection.len())
-                    .reversed()
+                    .bold()
                     .push_to(&mut sub_line_spans);
 
                 // NOTE: update the current sub_line remainder so that it begins after the end of the intersection
                 sub_line_sub_region_opt = sub_line_sub_region.with_start(intersection.end_exclusive());
             }
 
-            sub_line_spans.into()
+            let line = sub_line_spans.convert::<Line<'a>>();
+
+            if selection_region_on_this_line {
+                line.reversed()
+            } else {
+                line
+            }
         })
     }
 
