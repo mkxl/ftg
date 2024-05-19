@@ -12,6 +12,8 @@ pub fn expand(item: TokenStream) -> TokenStream {
     let mut structs = std::vec![];
 
     for variant in data_enum.variants.iter_mut() {
+        // NOTE: we parse FieldsUnnamed from quote::quote! { ... } rather than constructing it directly because to
+        // construct it directly requires handling/passing Spans which did not seem worth it
         let Fields::Named(_fields_named) = &variant.fields else {
             continue;
         };

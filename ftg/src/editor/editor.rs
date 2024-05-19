@@ -2,7 +2,8 @@ use crate::{
     config::Config,
     editor::{
         buffer::buffer::Buffer,
-        keymap::{Command, Context, Keymap},
+        command::Command,
+        keymap::{Context, Keymap},
         view::view::View,
         window::{Window, WindowArgs},
     },
@@ -122,8 +123,8 @@ impl Editor {
         match self.keymap.get(view.context(), &[event]) {
             (_, Ok(Command::Quit)) => return true.ok(),
             (_, Err(&[Event::Resize(width, height)])) => view.resize(width, height)?,
-            (Context::Buffer, Ok(Command::MoveUp)) => view.move_up(),
-            (Context::Buffer, Ok(Command::MoveDown)) => view.move_down(buffer, 1),
+            (Context::Buffer, Ok(Command::MoveUp { count })) => view.move_up(*count),
+            (Context::Buffer, Ok(Command::MoveDown { count })) => view.move_down(buffer, *count),
             (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
             (Context::Buffer, Ok(Command::MoveRight)) => view.move_right(),
             (Context::Buffer, Ok(Command::Save)) => view.save(buffer).warn().unit(),

@@ -63,8 +63,8 @@ impl View {
         self.position.y = self.position.y.saturating_add(count).min(max_y);
     }
 
-    pub fn move_up(&mut self) {
-        self.position.y = self.position.y.saturating_sub(1);
+    pub fn move_up(&mut self, count: usize) {
+        self.position.y = self.position.y.saturating_sub(count);
     }
 
     pub fn move_left(&mut self) {

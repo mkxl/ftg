@@ -1,21 +1,7 @@
-use crate::utils::any::Any;
+use crate::{editor::command::Command, utils::any::Any};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use serde::{de::Error, Deserialize, Deserializer};
 use std::collections::HashMap;
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Command {
-    Close,
-    MoveUp,
-    MoveDown,
-    MoveLeft,
-    MoveRight,
-    Quit,
-    Save,
-    Search,
-    Submit,
-}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -29,6 +15,7 @@ pub struct KeyBinding {
     #[serde(deserialize_with = "KeyBinding::deserialize_keys", rename(deserialize = "keys"))]
     events: Vec<Event>,
 
+    #[serde(flatten)]
     command: Command,
 
     #[serde(default = "KeyBinding::default_contexts")]

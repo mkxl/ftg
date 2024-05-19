@@ -1,9 +1,10 @@
 keymap:
-  - { keys: [up], command: move_up }
-  # - { keys: [down], command: move_down, args: { count: 1 } }
-  - { keys: [down], command: move_down, args: { count: 5 } }
-  - { keys: [left], command: move_left }
-  - { keys: [right], command: move_right }
+  - { keys: [alt+i], command: move_up, args: { count: 1 } }
+  - { keys: [shift+alt+i], command: move_up, args: { count: 5 } }
+  - { keys: [alt+k], command: move_down, args: { count: 1 } }
+  - { keys: [shift+alt+k], command: move_down, args: { count: 5 } }
+  - { keys: [alt+j], command: move_left }
+  - { keys: [alt+l], command: move_right }
   - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }
   - { keys: [ctrl+w], command: search }
   - { keys: [ctrl+e], command: save }
