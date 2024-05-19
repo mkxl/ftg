@@ -68,7 +68,7 @@ impl Editor {
     }
 
     pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
-        let buffer_id = self.buffer(args.filepath.as_deref())?;
+        let buffer_id = self.buffer(args.filepath())?;
         let view = View::new(buffer_id, args)?;
         let window = Window::new(&view);
         let window_id = window.id();

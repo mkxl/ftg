@@ -30,7 +30,7 @@ impl View {
 
     pub fn new(buffer_id: Ulid, args: WindowArgs) -> Result<Self, Error> {
         let id = Ulid::new();
-        let terminal = Terminal::new(args.size.rect());
+        let terminal = Terminal::new(args.size().rect());
         let position = Position::zero();
         let selection_set = Region::unit(0).into();
         let context = Context::Buffer;
@@ -155,8 +155,7 @@ impl View {
     pub fn render(&mut self, _window: &Window, buffer: &Buffer) -> Result<Vec<u8>, Error> {
         let title_line = self
             .args
-            .filepath
-            .as_deref()
+            .filepath()
             .and_then(Path::file_name)
             .and_then(OsStr::to_str)
             .unwrap_or(Self::DEFAULT_TITLE)
@@ -221,7 +220,7 @@ impl View {
     }
 
     pub fn save(&self, buffer: &Buffer) -> Result<(), IoError> {
-        let Some(filepath) = self.args.filepath.as_ref() else {
+        let Some(filepath) = self.args.filepath() else {
             return ().ok();
         };
 

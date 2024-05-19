@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
 use serde_yaml::Error as SerdeYamlError;
 use std::{
+    borrow::Borrow,
     fmt::Display,
     fs::File,
     future::Future,
@@ -171,13 +172,13 @@ pub trait Any: Sized {
         std::fs::read_to_string(self)
     }
 
-    fn rect(self) -> Rect
+    fn rect<T: Borrow<u16>>(&self) -> Rect
     where
-        Self: Into<(u16, u16)>,
+        Self: Borrow<(T, T)>,
     {
-        let (width, height) = self.into();
+        let (width, height) = self.borrow();
 
-        Rect::new(0, 0, width, height)
+        Rect::new(0, 0, *width.borrow(), *height.borrow())
     }
 
     fn replace_with(&mut self, src: Self) -> Self {

@@ -1,12 +1,42 @@
-use crate::{editor::view::view::View, utils::container::Identifiable};
+use crate::{
+    editor::view::view::View,
+    utils::{any::Any, container::Identifiable},
+};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use ulid::Ulid;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct WindowArgs {
-    pub size: (u16, u16),
-    pub filepath: Option<PathBuf>,
+    size: (u16, u16),
+    filepath: Option<PathBuf>,
+}
+
+impl WindowArgs {
+    pub fn new(size: (u16, u16), current_dirpath: &Path, filepath: Option<PathBuf>) -> Self {
+        let filepath = Self::get_filepath(current_dirpath, filepath);
+
+        Self { size, filepath }
+    }
+
+    fn get_filepath(current_dirpath: &Path, filepath: Option<PathBuf>) -> Option<PathBuf> {
+        let filepath = filepath?;
+        let filepath = if filepath.is_absolute() {
+            filepath
+        } else {
+            current_dirpath.join(filepath)
+        };
+
+        filepath.some()
+    }
+
+    pub fn size(&self) -> &(u16, u16) {
+        &self.size
+    }
+
+    pub fn filepath(&self) -> Option<&Path> {
+        self.filepath.as_deref()
+    }
 }
 
 pub struct Window {

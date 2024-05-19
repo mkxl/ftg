@@ -45,12 +45,10 @@ impl Client {
         ().ok()
     }
 
-    fn window_args(cli_args: CliArgs) -> Result<WindowArgs, Error> {
+    fn window_args(CliArgs { filepath, .. }: CliArgs) -> Result<WindowArgs, Error> {
         let size = crossterm::terminal::size()?;
-        let window_args = WindowArgs {
-            size,
-            filepath: cli_args.filepath,
-        };
+        let current_dirpath = std::env::current_dir()?;
+        let window_args = WindowArgs::new(size, &current_dirpath, filepath);
 
         window_args.ok()
     }
