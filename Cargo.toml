@@ -1,41 +1,6 @@
-[package]
-name = "ftg"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-ansi-parser = "0.8.0"
-clap = { version = "4.5.3", features = ["derive"] }
-crossterm = { version = "0.27.0", features = ["event-stream", "serde", "use-dev-tty"] }
-derive_more = "0.99.17"
-futures = "0.3.30"
-http = "1.1.0"
-itertools = "0.12.1"
-nodit = "0.9.1"
-parking_lot = "0.12.2"
-poem = { version = "3.0.0", features = ["websocket"] }
-poem-openapi = "5.0.0"
-postcard = { version = "1.0.8", features = ["use-std"] }
-ratatui = "0.26.1"
-reqwest = { version = "0.12.4", features = ["rustls-tls"] }
-ropey = "1.6.1"
-serde = "1.0.197"
-serde_json = "1.0.114"
-serde_yaml = "0.9.34"
-strum = "0.26.2"
-strum_macros = "0.26.2"
-tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
-tokio-stream = "0.1.15"
-tokio-tungstenite = "0.21.0"
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["json"] }
-tryvial = "0.2.0"
-ulid = "1.1.2"
-uri = "0.4.0"
-url = "2.5.0"
-
-[lints.clippy]
-pedantic = { level = "deny", priority = -1 }
-module_name_repetitions = "allow"
-module_inception = "allow"
-unit_arg = "allow"
+[workspace]
+resolver = "2"
+members = [
+    "ftg",
+    "ftg-macros"
+]
