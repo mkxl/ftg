@@ -161,19 +161,31 @@ impl View {
         })
     }
 
+    fn title(filepath: Option<&Path>) -> Line {
+        if let Some(filepath) = filepath {
+            filepath.display().to_string().into()
+        } else {
+            Self::DEFAULT_TITLE.into()
+        }
+    }
+
     pub fn render(&mut self, _window: &Window, buffer: &Buffer) -> Result<Vec<u8>, Error> {
-        let title_line = self
-            .args
-            .filepath()
+        let filepath = self.args.filepath();
+        let title_line = Self::title(filepath).centered().bold();
+        let tab_line = filepath
             .and_then(Path::file_name)
             .and_then(OsStr::to_str)
             .unwrap_or(Self::DEFAULT_TITLE)
             .reversed()
             .convert::<Line>();
-        let area = self.terminal.area().saturating_sub(0, 1);
+        let area = self.terminal.area().saturating_sub(0, 2);
         let sub_lines = buffer.sub_lines(&self.position, area);
         let lines = Self::lines(&self.selection_set, sub_lines);
-        let lines = title_line.once().chain(lines).collect::<Vec<_>>();
+        let lines = title_line
+            .once()
+            .chain(tab_line.once())
+            .chain(lines)
+            .collect::<Vec<_>>();
         let paragraph = Paragraph::new(lines);
 
         self.terminal.render_widget(paragraph, self.terminal.area());
