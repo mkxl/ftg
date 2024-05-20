@@ -1,7 +1,7 @@
 use crate::{cli_args::CliArgs, editor::window::WindowArgs, error::Error, server::Server, utils::any::Any};
 use crossterm::{
     cursor::{Hide, Show},
-    event::EventStream,
+    event::{DisableMouseCapture, EnableMouseCapture, EventStream},
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
     QueueableCommand,
 };
@@ -30,6 +30,7 @@ impl Client {
     fn on_init(&mut self) -> Result<(), Error> {
         crossterm::terminal::enable_raw_mode()?;
         self.stdout
+            .queue(EnableMouseCapture)?
             .queue(EnterAlternateScreen)?
             .queue(Hide)?
             .queue(Clear(ClearType::All))?
@@ -40,7 +41,11 @@ impl Client {
 
     fn on_drop(&mut self) -> Result<(), Error> {
         crossterm::terminal::disable_raw_mode()?;
-        self.stdout.queue(LeaveAlternateScreen)?.queue(Show)?.flush()?;
+        self.stdout
+            .queue(DisableMouseCapture)?
+            .queue(LeaveAlternateScreen)?
+            .queue(Show)?
+            .flush()?;
 
         ().ok()
     }

@@ -9,4 +9,4 @@ quote = "1.0.36"
 syn = "2.0.64"
 
 [lib]
-proc_macro = true
+proc-macro = true

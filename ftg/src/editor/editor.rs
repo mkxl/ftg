@@ -10,7 +10,7 @@ use crate::{
     error::Error,
     utils::{any::Any, container::Container},
 };
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
@@ -37,6 +37,15 @@ macro_rules! key_pattern {
         Event::Key(KeyEvent {
             code: KeyCode::Char($chr),
             modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+            ..
+        })
+    };
+}
+
+macro_rules! mouse_pattern {
+    ($variant:ident) => {
+        Event::Mouse(MouseEvent {
+            kind: MouseEventKind::$variant,
             ..
         })
     };
@@ -123,6 +132,8 @@ impl Editor {
         match self.keymap.get(view.context(), &[event]) {
             (_, Ok(Command::Quit)) => return true.ok(),
             (_, Err(&[Event::Resize(width, height)])) => view.resize(width, height)?,
+            (_, Err(&[mouse_pattern!(ScrollUp)])) => view.move_up(1),
+            (_, Err(&[mouse_pattern!(ScrollDown)])) => view.move_down(buffer, 1),
             (Context::Buffer, Ok(Command::MoveUp { count })) => view.move_up(*count),
             (Context::Buffer, Ok(Command::MoveDown { count })) => view.move_down(buffer, *count),
             (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
