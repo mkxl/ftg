@@ -7,6 +7,7 @@ use serde_yaml::Error as SerdeYamlError;
 use std::io::Error as IoError;
 use tokio::task::JoinError as TokioJoinError;
 use tokio_tungstenite::tungstenite::Error as TungsteniteError;
+use ulid::Ulid;
 
 // NOTE:
 // - Error must implement Debug to be used as E in fn main() -> Result<(), E>
@@ -22,4 +23,7 @@ pub enum Error {
     SerdeYaml(SerdeYamlError),
     TokioJoin(TokioJoinError),
     Tungstenite(TungsteniteError),
+
+    #[display(fmt = "unknown {_0} ID {_1}")]
+    UnknownItem(String, Ulid),
 }

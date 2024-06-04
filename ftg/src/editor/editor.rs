@@ -4,7 +4,7 @@ use crate::{
         buffer::buffer::Buffer,
         command::Command,
         keymap::{Context, Keymap},
-        view::view::View,
+        view::view::{View, ViewState},
         window::{Window, WindowArgs},
     },
     error::Error,
@@ -14,21 +14,15 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, Mouse
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
-macro_rules! get_mut {
+macro_rules! active_view {
     ($self:ident, $window_id:ident) => {{
-        let window = $self.windows.get_mut($window_id);
-        let view = if let Some(ref window) = window {
-            $self.views.get_mut(&window.primary_view_id())
-        } else {
-            None
-        };
-        let buffer = if let Some(ref view) = view {
-            $self.buffers.get_mut(&view.buffer_id())
-        } else {
-            None
-        };
+        let window = $self.windows.get_mut($window_id)?;
+        let (before, view, after) = window.active_view();
+        let buffer = $self.buffers.get_mut(&view.buffer_id())?;
+        let view_state = ViewState { buffer, before, after };
 
-        GetMut { window, view, buffer }
+        // NOTE: need turbofish here because E return type parameter is unspecified and cargo complains
+        (view, view_state).ok::<Error>()
     }};
 }
 
@@ -51,83 +45,82 @@ macro_rules! mouse_pattern {
     };
 }
 
-pub struct GetMut<'a> {
-    window: Option<&'a mut Window>,
-    view: Option<&'a mut View>,
-    buffer: Option<&'a mut Buffer>,
-}
-
 pub struct Editor {
     buffers: Container<Buffer>,
-    views: Container<View>,
     windows: Container<Window>,
     keymap: Keymap,
 }
 
 impl Editor {
+    const BUFFERS_CONTAINER_NAME: &'static str = "buffers";
+    const WINDOWS_CONTAINER_NAME: &'static str = "windows";
+
     pub fn new(config: Config) -> Self {
+        let buffers = Container::new(Self::BUFFERS_CONTAINER_NAME.into());
+        let windows = Container::new(Self::WINDOWS_CONTAINER_NAME.into());
         let keymap = Keymap::new(config.keymap);
 
         Self {
-            buffers: Container::default(),
-            views: Container::default(),
-            windows: Container::default(),
+            buffers,
+            windows,
             keymap,
         }
     }
 
+    fn views(&mut self, args: WindowArgs) -> Result<Vec<View>, Error> {
+        let rect = args.size().rect();
+        let filepaths = args.into_paths();
+        let filepaths = if filepaths.is_empty() {
+            None.once().left()
+        } else {
+            filepaths.into_iter().map(Some).right()
+        };
+        let views = filepaths.map(|filepath_opt| {
+            let buffer_id = self.get_buffer_id(filepath_opt.as_deref())?;
+            let view = View::new(buffer_id, rect, filepath_opt)?;
+
+            view.ok()
+        });
+
+        views.collect()
+    }
+
     pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
-        let buffer_id = self.buffer(args.filepath())?;
-        let view = View::new(buffer_id, args)?;
-        let window = Window::new(&view);
+        let views = self.views(args)?;
+        let window = Window::new(views);
         let window_id = window.id();
 
-        self.views.insert(view);
         self.windows.insert(window);
 
         window_id.ok()
     }
 
-    fn buffer(&mut self, filepath: Option<&Path>) -> Result<Ulid, IoError> {
+    fn get_buffer_id(&mut self, filepath: Option<&Path>) -> Result<Ulid, IoError> {
         let Some(filepath) = filepath else {
             return self.buffers.insert(Buffer::default()).id().ok();
         };
 
-        if let Some(buffer) = self.buffers.get_mut(&filepath.inode_id()?) {
+        if let Ok(buffer) = self.buffers.get(&filepath.inode_id()?) {
             buffer.id().ok()
         } else {
             self.buffers.insert(Buffer::from_filepath(filepath)?).id().ok()
         }
     }
 
-    fn get_mut(&mut self, window_id: &Ulid) -> GetMut {
-        get_mut!(self, window_id)
+    fn active_view(&mut self, window_id: &Ulid) -> Result<(&mut View, ViewState), Error> {
+        active_view!(self, window_id)
     }
 
     pub fn render(&mut self, window_id: &Ulid) -> Result<Option<Vec<u8>>, Error> {
-        let GetMut {
-            window: Some(window),
-            view: Some(view),
-            buffer: Some(buffer),
-        } = self.get_mut(window_id)
-        else {
-            return None.ok();
-        };
+        let (view, view_state) = self.active_view(window_id)?;
 
-        view.render(window, buffer)?.some().ok()
+        view.render(&view_state)?.some().ok()
     }
 
     pub fn feed(&mut self, window_id: &Ulid, event: Event) -> Result<bool, Error> {
-        // NOTE: use get_mut!() macro rather than self.get_mut() method to prevent
+        // NOTE: use active_view!() macro rather than self.active_view() method to prevent
         // `cannot borrow `self.keymap` as immutable because it is also borrowed as mutable`
-        let GetMut {
-            view: Some(view),
-            buffer: Some(buffer),
-            ..
-        } = get_mut!(self, window_id)
-        else {
-            return true.ok();
-        };
+        let (view, ViewState { buffer, .. }) = active_view!(self, window_id)?;
 
         match self.keymap.get(view.context(), &[event]) {
             (_, Ok(Command::Quit)) => return true.ok(),

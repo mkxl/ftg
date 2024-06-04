@@ -5,21 +5,32 @@ use crate::{
         selection::{region::Region, selection::Selection, set::SelectionSet},
         terminal::Terminal,
         view::search::Search,
-        window::{Window, WindowArgs},
     },
     error::Error,
     utils::{any::Any, container::Identifiable, position::Position},
 };
-use ratatui::{style::Stylize, text::Line, widgets::Paragraph};
-use std::{ffi::OsStr, io::Error as IoError, path::Path};
+use itertools::Itertools;
+use ratatui::{layout::Rect, style::Stylize, text::Line, widgets::Paragraph};
+use std::{
+    borrow::Cow,
+    ffi::OsStr,
+    io::Error as IoError,
+    path::{Path, PathBuf},
+};
 use ulid::Ulid;
+
+pub struct ViewState<'a> {
+    pub buffer: &'a mut Buffer,
+    pub before: &'a [View],
+    pub after: &'a [View],
+}
 
 pub struct View {
     id: Ulid,
     buffer_id: Ulid,
     terminal: Terminal,
     position: Position,
-    args: WindowArgs,
+    filepath: Option<PathBuf>,
     selection_set: SelectionSet,
     context: Context,
     search: Search,
@@ -28,9 +39,9 @@ pub struct View {
 impl View {
     const DEFAULT_TITLE: &'static str = "Untitled";
 
-    pub fn new(buffer_id: Ulid, args: WindowArgs) -> Result<Self, Error> {
+    pub fn new(buffer_id: Ulid, rect: Rect, filepath: Option<PathBuf>) -> Result<Self, Error> {
         let id = Ulid::new();
-        let terminal = Terminal::new(args.size().rect());
+        let terminal = Terminal::new(rect);
         let position = Position::zero();
         let selection_set = Region::unit(0).into();
         let context = Context::Buffer;
@@ -40,7 +51,7 @@ impl View {
             buffer_id,
             terminal,
             position,
-            args,
+            filepath,
             selection_set,
             context,
             search,
@@ -161,7 +172,15 @@ impl View {
         })
     }
 
-    fn title(filepath: Option<&Path>) -> Line {
+    fn views<'a>(&'a self, view_state: &'a ViewState) -> impl 'a + Iterator<Item = &'a View> {
+        view_state
+            .before
+            .iter()
+            .chain(self.once())
+            .chain(view_state.after.iter())
+    }
+
+    fn title(filepath: Option<&Path>) -> Cow<str> {
         if let Some(filepath) = filepath {
             filepath.display().to_string().into()
         } else {
@@ -169,17 +188,26 @@ impl View {
         }
     }
 
-    pub fn render(&mut self, _window: &Window, buffer: &Buffer) -> Result<Vec<u8>, Error> {
-        let filepath = self.args.filepath();
-        let title_line = Self::title(filepath).centered().bold();
-        let tab_line = filepath
+    fn name(&self) -> &str {
+        self.filepath
+            .as_deref()
             .and_then(Path::file_name)
             .and_then(OsStr::to_str)
             .unwrap_or(Self::DEFAULT_TITLE)
+    }
+
+    pub fn render(&mut self, view_state: &ViewState) -> Result<Vec<u8>, Error> {
+        let title = Self::title(self.filepath.as_deref());
+        let title_line = Line::raw(title).centered().bold();
+        let tab_line = self
+            .views(view_state)
+            .map(View::name)
+            .join(" | ")
             .reversed()
             .convert::<Line>();
+        // let tab_line = self.args.name().reversed().convert::<Line>();
         let area = self.terminal.area().saturating_sub(0, 2);
-        let sub_lines = buffer.sub_lines(&self.position, area);
+        let sub_lines = view_state.buffer.sub_lines(&self.position, area);
         let lines = Self::lines(&self.selection_set, sub_lines);
         let lines = title_line
             .once()
@@ -241,7 +269,7 @@ impl View {
     }
 
     pub fn save(&self, buffer: &Buffer) -> Result<(), IoError> {
-        let Some(filepath) = self.args.filepath() else {
+        let Some(filepath) = &self.filepath else {
             return ().ok();
         };
 

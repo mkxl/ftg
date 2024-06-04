@@ -1,5 +1,6 @@
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
+use itertools::Either;
 use parking_lot::Mutex;
 use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
@@ -33,10 +34,6 @@ pub trait Any: Sized {
         let outputs = string.ansi_parse().collect::<Vec<_>>();
 
         outputs.some()
-    }
-
-    fn push_to(self, values: &mut Vec<Self>) {
-        values.push(self);
     }
 
     fn arc(self) -> Arc<Self> {
@@ -128,11 +125,19 @@ pub trait Any: Sized {
         hasher.finish()
     }
 
+    fn immutable(&mut self) -> &Self {
+        &*self
+    }
+
     fn inode_id(self) -> Result<Ulid, IoError>
     where
         Self: AsRef<Path>,
     {
         self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
+    }
+
+    fn left<R>(self) -> Either<Self, R> {
+        Either::Left(self)
     }
 
     fn mem_take(&mut self) -> Self
@@ -165,6 +170,10 @@ pub trait Any: Sized {
         File::open(self)
     }
 
+    fn push_to(self, values: &mut Vec<Self>) {
+        values.push(self);
+    }
+
     fn read_to_string(&self) -> Result<String, IoError>
     where
         Self: AsRef<Path>,
@@ -183,6 +192,10 @@ pub trait Any: Sized {
 
     fn replace_with(&mut self, src: Self) -> Self {
         std::mem::replace(self, src)
+    }
+
+    fn right<L>(self) -> Either<L, Self> {
+        Either::Right(self)
     }
 
     fn rope(&self) -> Result<Rope, IoError>
@@ -233,6 +246,16 @@ pub trait Any: Sized {
         Self: Iterator<Item = char>,
     {
         Span::raw(self.take(len).collect::<String>())
+    }
+
+    fn split3<T>(&mut self, index: usize) -> (&[T], &mut T, &[T])
+    where
+        Self: AsMut<[T]>,
+    {
+        let (head, tail) = self.as_mut().split_at_mut(index);
+        let (mid, tail) = tail.split_at_mut(1);
+
+        (head, &mut mid[0], tail)
     }
 
     fn unit(self) {}

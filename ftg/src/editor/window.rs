@@ -9,55 +9,51 @@ use ulid::Ulid;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct WindowArgs {
     size: (u16, u16),
-    filepath: Option<PathBuf>,
+    paths: Vec<PathBuf>,
 }
 
 impl WindowArgs {
-    pub fn new(size: (u16, u16), current_dirpath: &Path, filepath: Option<PathBuf>) -> Self {
-        let filepath = Self::get_filepath(current_dirpath, filepath);
+    pub fn new(size: (u16, u16), current_dirpath: &Path, mut paths: Vec<PathBuf>) -> Self {
+        for path in &mut paths {
+            *path = current_dirpath.join(path.immutable());
+        }
 
-        Self { size, filepath }
-    }
-
-    fn get_filepath(current_dirpath: &Path, filepath: Option<PathBuf>) -> Option<PathBuf> {
-        let filepath = filepath?;
-        let filepath = if filepath.is_absolute() {
-            filepath
-        } else {
-            current_dirpath.join(filepath)
-        };
-
-        filepath.some()
+        Self { size, paths }
     }
 
     pub fn size(&self) -> &(u16, u16) {
         &self.size
     }
 
-    pub fn filepath(&self) -> Option<&Path> {
-        self.filepath.as_deref()
+    pub fn into_paths(self) -> Vec<PathBuf> {
+        self.paths
     }
 }
 
 pub struct Window {
     id: Ulid,
-    view_id: Ulid,
+    views: Vec<View>,
+    active_view_index: usize,
 }
 
 impl Window {
-    pub fn new(view: &View) -> Self {
+    pub fn new(views: Vec<View>) -> Self {
         let id = Ulid::new();
-        let view_id = view.id();
+        let active_view_index = 0;
 
-        Self { id, view_id }
+        Self {
+            id,
+            views,
+            active_view_index,
+        }
     }
 
     pub fn id(&self) -> Ulid {
         self.id
     }
 
-    pub fn primary_view_id(&self) -> Ulid {
-        self.view_id
+    pub fn active_view(&mut self) -> (&[View], &mut View, &[View]) {
+        self.views.split3(self.active_view_index)
     }
 }
 
