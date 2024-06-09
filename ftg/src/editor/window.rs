@@ -1,5 +1,5 @@
 use crate::{
-    editor::view::view::View,
+    editor::view::view::{View, ViewContext},
     utils::{any::Any, container::Identifiable},
 };
 use serde::{Deserialize, Serialize};
@@ -52,8 +52,17 @@ impl Window {
         self.id
     }
 
-    pub fn active_view(&mut self) -> (&[View], &mut View, &[View]) {
-        self.views.split3(self.active_view_index)
+    pub fn active_view(&mut self) -> (&mut View, ViewContext) {
+        let num_views = self.views.len();
+        let (before, view, after) = self.views.split3(self.active_view_index);
+        let layout = ViewContext {
+            before,
+            after,
+            index: self.active_view_index,
+            num_views,
+        };
+
+        (view, layout)
     }
 }
 

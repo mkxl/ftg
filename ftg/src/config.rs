@@ -1,8 +1,8 @@
-use crate::editor::keymap::KeyBinding;
+use crate::editor::{color_scheme::ColorScheme, keymap::KeyBinding};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Config {
-    #[serde(default)]
+    pub color_scheme: ColorScheme,
     pub keymap: Vec<KeyBinding>,
 }

@@ -2,9 +2,10 @@ use crate::{
     config::Config,
     editor::{
         buffer::buffer::Buffer,
+        color_scheme::ColorScheme,
         command::Command,
         keymap::{Context, Keymap},
-        view::view::{View, ViewState},
+        view::view::{View, ViewBufferContext},
         window::{Window, WindowArgs},
     },
     error::Error,
@@ -17,9 +18,9 @@ use ulid::Ulid;
 macro_rules! active_view {
     ($self:ident, $window_id:ident) => {{
         let window = $self.windows.get_mut($window_id)?;
-        let (before, view, after) = window.active_view();
+        let (view, context) = window.active_view();
         let buffer = $self.buffers.get_mut(&view.buffer_id())?;
-        let view_state = ViewState { buffer, before, after };
+        let view_state = ViewBufferContext { buffer, context };
 
         // NOTE: need turbofish here because E return type parameter is unspecified and cargo complains
         (view, view_state).ok::<Error>()
@@ -46,6 +47,7 @@ macro_rules! mouse_pattern {
 }
 
 pub struct Editor {
+    color_scheme: ColorScheme,
     buffers: Container<Buffer>,
     windows: Container<Window>,
     keymap: Keymap,
@@ -61,6 +63,7 @@ impl Editor {
         let keymap = Keymap::new(config.keymap);
 
         Self {
+            color_scheme: config.color_scheme,
             buffers,
             windows,
             keymap,
@@ -107,20 +110,17 @@ impl Editor {
         }
     }
 
-    fn active_view(&mut self, window_id: &Ulid) -> Result<(&mut View, ViewState), Error> {
-        active_view!(self, window_id)
-    }
-
     pub fn render(&mut self, window_id: &Ulid) -> Result<Option<Vec<u8>>, Error> {
-        let (view, view_state) = self.active_view(window_id)?;
+        // NOTE-b06978: use active_view!() macro rather than self.active_view() method to prevent
+        // `cannot borrow `self.keymap` as immutable because it is also borrowed as mutable`
+        let (view, view_state) = active_view!(self, window_id)?;
 
-        view.render(&view_state)?.some().ok()
+        view.render(&view_state, &self.color_scheme)?.some().ok()
     }
 
     pub fn feed(&mut self, window_id: &Ulid, event: Event) -> Result<bool, Error> {
-        // NOTE: use active_view!() macro rather than self.active_view() method to prevent
-        // `cannot borrow `self.keymap` as immutable because it is also borrowed as mutable`
-        let (view, ViewState { buffer, .. }) = active_view!(self, window_id)?;
+        // NOTE-b06978
+        let (view, ViewBufferContext { buffer, .. }) = active_view!(self, window_id)?;
 
         match self.keymap.get(view.context(), &[event]) {
             (_, Ok(Command::Quit)) => return true.ok(),

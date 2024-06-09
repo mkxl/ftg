@@ -1,3 +1,23 @@
+color_scheme:
+  title:
+    fg: "#c0c5ce"
+    bg: "#1a1d23"
+  tabs:
+    dots:
+      fg: "#c0c5ce"
+      bg: "#1a1d23"
+    active:
+      fg: "#c0c5ce"
+      bg: "#2b303b"
+    primary:
+      fg: "#c0c5ce"
+      bg: "#21242c"
+    secondary:
+      fg: "#c0c5ce"
+      bg: "#1a1d23"
+  buffer:
+    fg: "#c0c5ce"
+    bg: "#2b303b"
 keymap:
   - { keys: [alt+i], command: move_up, args: { count: 1 } }
   - { keys: [shift+alt+i], command: move_up, args: { count: 5 } }

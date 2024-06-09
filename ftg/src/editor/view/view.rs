@@ -1,28 +1,38 @@
 use crate::{
     editor::{
         buffer::buffer::{Buffer, SubLine},
+        color_scheme::ColorScheme,
         keymap::Context,
         selection::{region::Region, selection::Selection, set::SelectionSet},
         terminal::Terminal,
-        view::search::Search,
+        view::{header::Header, search::Search},
     },
     error::Error,
     utils::{any::Any, container::Identifiable, position::Position},
 };
-use itertools::Itertools;
 use ratatui::{layout::Rect, style::Stylize, text::Line, widgets::Paragraph};
-use std::{
-    borrow::Cow,
-    ffi::OsStr,
-    io::Error as IoError,
-    path::{Path, PathBuf},
-};
+use std::{io::Error as IoError, path::PathBuf};
 use ulid::Ulid;
 
-pub struct ViewState<'a> {
-    pub buffer: &'a mut Buffer,
+pub struct ViewContext<'a> {
     pub before: &'a [View],
     pub after: &'a [View],
+    pub index: usize,
+    pub num_views: usize,
+}
+
+impl<'a> ViewContext<'a> {
+    pub fn names(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> {
+        let left = self.before.iter().map(View::name);
+        let right = self.after.iter().map(View::name);
+
+        left.chain_once(name).chain(right)
+    }
+}
+
+pub struct ViewBufferContext<'a> {
+    pub buffer: &'a mut Buffer,
+    pub context: ViewContext<'a>,
 }
 
 pub struct View {
@@ -30,18 +40,20 @@ pub struct View {
     buffer_id: Ulid,
     terminal: Terminal,
     position: Position,
-    filepath: Option<PathBuf>,
+    header: Header,
     selection_set: SelectionSet,
     context: Context,
     search: Search,
 }
 
 impl View {
-    const DEFAULT_TITLE: &'static str = "Untitled";
+    const WIDTH_DOTS: u16 = 5;
+    const TAB_WIDTH: u16 = 15;
 
     pub fn new(buffer_id: Ulid, rect: Rect, filepath: Option<PathBuf>) -> Result<Self, Error> {
         let id = Ulid::new();
         let terminal = Terminal::new(rect);
+        let header = Header::new(filepath);
         let position = Position::zero();
         let selection_set = Region::unit(0).into();
         let context = Context::Buffer;
@@ -51,7 +63,7 @@ impl View {
             buffer_id,
             terminal,
             position,
-            filepath,
+            header,
             selection_set,
             context,
             search,
@@ -90,6 +102,7 @@ impl View {
     fn lines<'a, I: 'a + Iterator<Item = SubLine<'a>>>(
         selection_set: &'a SelectionSet,
         sub_lines: I,
+        color_scheme: &'a ColorScheme,
     ) -> impl 'a + Iterator<Item = Line<'a>> {
         let mut selection_regions = selection_set.primary().iter();
         let mut selection_region_opt = selection_regions.next();
@@ -162,7 +175,10 @@ impl View {
                 sub_line_sub_region_opt = sub_line_sub_region.with_start(intersection.end_exclusive());
             }
 
-            let line = sub_line_spans.convert::<Line<'a>>();
+            let line = sub_line_spans
+                .convert::<Line<'a>>()
+                .fg(color_scheme.buffer.fg)
+                .bg(color_scheme.buffer.bg);
 
             if selection_region_on_this_line {
                 line.reversed()
@@ -172,51 +188,82 @@ impl View {
         })
     }
 
-    fn views<'a>(&'a self, view_state: &'a ViewState) -> impl 'a + Iterator<Item = &'a View> {
-        view_state
-            .before
-            .iter()
-            .chain(self.once())
-            .chain(view_state.after.iter())
-    }
-
-    fn title(filepath: Option<&Path>) -> Cow<str> {
-        if let Some(filepath) = filepath {
-            filepath.display().to_string().into()
-        } else {
-            Self::DEFAULT_TITLE.into()
-        }
-    }
-
     fn name(&self) -> &str {
-        self.filepath
-            .as_deref()
-            .and_then(Path::file_name)
-            .and_then(OsStr::to_str)
-            .unwrap_or(Self::DEFAULT_TITLE)
+        self.header.name()
     }
 
-    pub fn render(&mut self, view_state: &ViewState) -> Result<Vec<u8>, Error> {
-        let title = Self::title(self.filepath.as_deref());
-        let title_line = Line::raw(title).centered().bold();
-        let tab_line = self
-            .views(view_state)
-            .map(View::name)
-            .join(" | ")
-            .reversed()
-            .convert::<Line>();
-        // let tab_line = self.args.name().reversed().convert::<Line>();
-        let area = self.terminal.area().saturating_sub(0, 2);
-        let sub_lines = view_state.buffer.sub_lines(&self.position, area);
-        let lines = Self::lines(&self.selection_set, sub_lines);
-        let lines = title_line
-            .once()
-            .chain(tab_line.once())
-            .chain(lines)
-            .collect::<Vec<_>>();
+    fn tab_line<'a>(
+        terminal_area: Rect,
+        view_context: &'a ViewContext<'a>,
+        active_view_name: &'a str,
+        color_scheme: &ColorScheme,
+    ) -> Result<Line<'static>, Error> {
+        // NOTE-d7ec81
+        let (num_possible_tabs, _width_rem) = (terminal_area.width - 2 * Self::WIDTH_DOTS).divmod(Self::TAB_WIDTH);
+        let num_possible_tabs = num_possible_tabs as usize;
+        let begin_idx_of_last_n = view_context.num_views.saturating_sub(num_possible_tabs);
+        let first_view_index_to_render = if (0..num_possible_tabs).contains(&view_context.index) {
+            0
+        } else if (begin_idx_of_last_n..view_context.num_views).contains(&view_context.index) {
+            begin_idx_of_last_n
+        } else {
+            std::todo!()
+        };
+        let line = view_context
+            .names(active_view_name)
+            .enumerate()
+            .skip(first_view_index_to_render)
+            .take(num_possible_tabs)
+            .map(|(idx, view_name)| {
+                let spec = if idx == view_context.index {
+                    &color_scheme.tabs.active
+                } else if idx.is_even() {
+                    &color_scheme.tabs.primary
+                } else {
+                    &color_scheme.tabs.secondary
+                };
+
+                // TODO: don't allocate a string, but yield an itereator, flatten the iterator of iterators, and
+                // collect into a line
+                view_name
+                    .center(" ", Self::TAB_WIDTH.into())
+                    .collect::<String>()
+                    .fg(spec.fg)
+                    .fg(spec.bg)
+            })
+            .collect::<Line>();
+
+        line.ok()
+    }
+
+    pub fn render(
+        &mut self,
+        view_buffer_context: &ViewBufferContext,
+        color_scheme: &ColorScheme,
+    ) -> Result<Vec<u8>, Error> {
+        // TODO: can i make all these Self::*() methods self.*() methods?
+        let terminal_area = self.terminal.area();
+        let title_line = self
+            .header
+            .title()
+            .convert::<Line>()
+            .centered()
+            .fg(color_scheme.title.fg)
+            .bg(color_scheme.title.bg)
+            .bold();
+        let tab_line = Self::tab_line(
+            terminal_area,
+            &view_buffer_context.context,
+            self.header.name(),
+            color_scheme,
+        )?;
+        let buffer_area = terminal_area.saturating_sub(0, 2);
+        let sub_lines = view_buffer_context.buffer.sub_lines(&self.position, buffer_area);
+        let lines = Self::lines(&self.selection_set, sub_lines, color_scheme);
+        let lines = title_line.once().chain_once(tab_line).chain(lines).collect::<Vec<_>>();
         let paragraph = Paragraph::new(lines);
 
-        self.terminal.render_widget(paragraph, self.terminal.area());
+        self.terminal.render_widget(paragraph, terminal_area);
 
         self.terminal.finish()
     }
@@ -269,7 +316,7 @@ impl View {
     }
 
     pub fn save(&self, buffer: &Buffer) -> Result<(), IoError> {
-        let Some(filepath) = &self.filepath else {
+        let Some(filepath) = &self.header.path() else {
             return ().ok();
         };
 

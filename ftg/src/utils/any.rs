@@ -1,6 +1,7 @@
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
 use itertools::Either;
+use num_traits::Num;
 use parking_lot::Mutex;
 use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
@@ -17,11 +18,14 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufReader, BufWriter, Error as IoError, Read, Write},
     iter::Once,
+    ops::{BitAnd, Div, Range, Rem},
     os::unix::fs::MetadataExt,
     path::Path,
     sync::Arc,
 };
 use ulid::Ulid;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 pub trait Any: Sized {
     // NOTE: likely will be used in the future for debugging
@@ -61,6 +65,27 @@ pub trait Any: Sized {
         BufWriter::new(self)
     }
 
+    fn center<'a>(&'a self, chr: &'a str, total_width: usize) -> impl Iterator<Item = &'a str>
+    where
+        Self: AsRef<str>,
+    {
+        let graphemes = self.iter_graphemes(0..total_width);
+        let rem_width = total_width.saturating_sub(self.as_ref().width());
+        let right_width = rem_width / 2;
+        let left_width = rem_width.saturating_sub(right_width);
+        let left = chr.iter_repeat(left_width);
+        let right = chr.iter_repeat(right_width);
+
+        left.chain(graphemes).chain(right)
+    }
+
+    fn chain_once<T>(self, item: T) -> impl Iterator<Item = T>
+    where
+        Self: Iterator<Item = T>,
+    {
+        self.chain(item.once())
+    }
+
     fn convert<T: From<Self>>(self) -> T {
         self.into()
     }
@@ -91,6 +116,14 @@ pub trait Any: Sized {
         Self: AsRef<str>,
     {
         serde_yaml::from_str(self.as_ref())
+    }
+
+    // NOTE: [https://stackoverflow.com/questions/69051429/what-is-the-function-to-get-the-quotient-and-remainder-divmod-for-rust#comment122040171_69051429]
+    fn divmod(self, other: Self) -> (Self, Self)
+    where
+        Self: Copy + Div<Self, Output = Self> + Rem<Self, Output = Self>,
+    {
+        (self / other, self % other)
     }
 
     fn encode(&self) -> Result<Vec<u8>, PostcardError>
@@ -134,6 +167,27 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
+    }
+
+    fn is_even(&self) -> bool
+    where
+        Self: Copy + Num + BitAnd<Self, Output = Self>,
+    {
+        (*self) & Self::one() == Self::zero()
+    }
+
+    fn iter_graphemes(&self, range: Range<usize>) -> impl Iterator<Item = &str>
+    where
+        Self: AsRef<str>,
+    {
+        self.as_ref().graphemes(true).skip(range.start).take(range.len())
+    }
+
+    fn iter_repeat(self, count: usize) -> impl Iterator<Item = Self>
+    where
+        Self: Copy,
+    {
+        std::iter::repeat(self).take(count)
     }
 
     fn left<R>(self) -> Either<Self, R> {

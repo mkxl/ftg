@@ -1,4 +1,5 @@
 pub mod buffer;
+pub mod color_scheme;
 pub mod command;
 pub mod editor;
 pub mod keymap;
