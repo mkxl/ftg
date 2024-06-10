@@ -12,6 +12,7 @@ pub struct Spec {
 }
 
 impl Spec {
+    // NOTE-ac8381
     fn deserialize_color<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Color, D::Error> {
         let color = Color::deserialize(deserializer)?;
         let Color::Rgb(r, g, b) = color else { return color.ok() };
@@ -30,8 +31,14 @@ pub struct Tabs {
 }
 
 #[derive(Deserialize)]
+pub struct Buffer {
+    pub selected: Spec,
+    pub unselected: Spec,
+}
+
+#[derive(Deserialize)]
 pub struct ColorScheme {
     pub title: Spec,
     pub tabs: Tabs,
-    pub buffer: Spec,
+    pub buffer: Buffer,
 }

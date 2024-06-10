@@ -1,6 +1,6 @@
 use crate::{
     editor::{
-        buffer::buffer::{Buffer, SubLine},
+        buffer::buffer::Buffer,
         color_scheme::ColorScheme,
         keymap::Context,
         selection::{region::Region, selection::Selection, set::SelectionSet},
@@ -47,7 +47,7 @@ pub struct View {
 }
 
 impl View {
-    const WIDTH_DOTS: u16 = 5;
+    const DOTS_WIDTH: u16 = 5;
     const TAB_WIDTH: u16 = 15;
 
     pub fn new(buffer_id: Ulid, rect: Rect, filepath: Option<PathBuf>) -> Result<Self, Error> {
@@ -99,15 +99,104 @@ impl View {
         self.position.x = self.position.x.saturating_add(1);
     }
 
-    fn lines<'a, I: 'a + Iterator<Item = SubLine<'a>>>(
-        selection_set: &'a SelectionSet,
-        sub_lines: I,
-        color_scheme: &'a ColorScheme,
-    ) -> impl 'a + Iterator<Item = Line<'a>> {
-        let mut selection_regions = selection_set.primary().iter();
-        let mut selection_region_opt = selection_regions.next();
+    fn name(&self) -> &str {
+        self.header.name()
+    }
 
-        sub_lines.map(move |sub_line| {
+    fn render_title(&mut self, color_scheme: &ColorScheme) {
+        let title_paragrah = self
+            .header
+            .title()
+            .paragraph()
+            .centered()
+            .color(&color_scheme.title)
+            .bold();
+
+        self.terminal
+            .render_widget(title_paragrah, self.terminal.area().width.row_at(0, 0));
+    }
+
+    fn dots(near_edge: bool, color_scheme: &ColorScheme) -> Paragraph<'static> {
+        let dots = if near_edge { "" } else { "..." };
+
+        dots.paragraph().centered().color(&color_scheme.tabs.dots)
+    }
+
+    fn render_tabs(&mut self, view_context: &ViewContext, color_scheme: &ColorScheme) {
+        // NOTE-d7ec81
+        let (num_possible_tabs, remainder_width) =
+            (self.terminal.area().width - 2 * Self::DOTS_WIDTH).divmod(Self::TAB_WIDTH);
+        let num_possible_tabs = num_possible_tabs as usize;
+        let near_left_edge = (0..num_possible_tabs).contains(&view_context.index);
+        let begin_idx_of_last_n = view_context.num_views.saturating_sub(num_possible_tabs);
+        let near_right_edge = (begin_idx_of_last_n..view_context.num_views).contains(&view_context.index);
+        let first_view_index_to_render = match (near_left_edge, near_right_edge) {
+            (true, _) => 0,
+            (_, true) => begin_idx_of_last_n,
+            (false, false) => std::todo!(),
+        };
+        let enumerated_view_names = view_context
+            .names(self.header.name())
+            .enumerate()
+            .skip(first_view_index_to_render)
+            .take(num_possible_tabs);
+        let left_dots = Self::dots(near_left_edge, color_scheme);
+        let right_dots = Self::dots(near_right_edge, color_scheme);
+
+        self.terminal.render_widget(left_dots, Self::DOTS_WIDTH.row_at(0, 1));
+
+        // TODO: if num_possible tabs is 0, then terminal screen is too small to render, and i should
+        // do dots
+        let mut render_area_x = Self::DOTS_WIDTH;
+
+        for (view_idx, view_name) in enumerated_view_names {
+            let render_area = Self::TAB_WIDTH.row_at(render_area_x, 1);
+
+            render_area_x = render_area_x.saturating_add(Self::TAB_WIDTH);
+
+            let spec = if view_idx == view_context.index {
+                &color_scheme.tabs.active
+            } else if view_idx.is_even() {
+                &color_scheme.tabs.primary
+            } else {
+                &color_scheme.tabs.secondary
+            };
+            let tab = view_name.paragraph().centered().color(spec);
+
+            self.terminal.render_widget(tab, render_area);
+        }
+
+        for _empty_tab_idx in 0..num_possible_tabs.saturating_sub(view_context.num_views) {
+            let render_area = Self::TAB_WIDTH.row_at(render_area_x, 1);
+
+            render_area_x = render_area_x.saturating_add(Self::TAB_WIDTH);
+
+            let empty_tab = Paragraph::default().color(&color_scheme.title);
+
+            self.terminal.render_widget(empty_tab, render_area);
+        }
+
+        let remainder = Paragraph::default().color(&color_scheme.title);
+
+        self.terminal
+            .render_widget(remainder, remainder_width.row_at(render_area_x, 1));
+
+        render_area_x = render_area_x.saturating_add(remainder_width);
+
+        self.terminal
+            .render_widget(right_dots, Self::DOTS_WIDTH.row_at(render_area_x, 1));
+    }
+
+    fn render_buffer(&mut self, buffer: &Buffer, color_scheme: &ColorScheme) {
+        let buffer_area = self.terminal.area().saturating_sub_from_top(2);
+        let sub_lines = buffer.sub_lines(&self.position, buffer_area);
+        let mut selection_regions = self.selection_set.primary().iter();
+        let mut selection_region_opt = selection_regions.next();
+        let background = Paragraph::default().color(&color_scheme.buffer.unselected);
+
+        self.terminal.render_widget(background, buffer_area);
+
+        for (render_y, sub_line) in (2..).zip(sub_lines) {
             // NOTE-ad63f1:
             // - we call sub_line.chars() and process the Chars iterator to avoid the O(log N) [1] cost of having to
             //   index into the sub_line rope slice multiple times
@@ -175,65 +264,17 @@ impl View {
                 sub_line_sub_region_opt = sub_line_sub_region.with_start(intersection.end_exclusive());
             }
 
-            let line = sub_line_spans
-                .convert::<Line<'a>>()
-                .fg(color_scheme.buffer.fg)
-                .bg(color_scheme.buffer.bg);
-
-            if selection_region_on_this_line {
-                line.reversed()
+            let spec = if selection_region_on_this_line {
+                &color_scheme.buffer.selected
             } else {
-                line
-            }
-        })
-    }
+                &color_scheme.buffer.unselected
+            };
 
-    fn name(&self) -> &str {
-        self.header.name()
-    }
+            let buffer_row = sub_line_spans.convert::<Line>().paragraph().color(spec);
 
-    fn tab_line<'a>(
-        terminal_area: Rect,
-        view_context: &'a ViewContext<'a>,
-        active_view_name: &'a str,
-        color_scheme: &ColorScheme,
-    ) -> Result<Line<'static>, Error> {
-        // NOTE-d7ec81
-        let (num_possible_tabs, _width_rem) = (terminal_area.width - 2 * Self::WIDTH_DOTS).divmod(Self::TAB_WIDTH);
-        let num_possible_tabs = num_possible_tabs as usize;
-        let begin_idx_of_last_n = view_context.num_views.saturating_sub(num_possible_tabs);
-        let first_view_index_to_render = if (0..num_possible_tabs).contains(&view_context.index) {
-            0
-        } else if (begin_idx_of_last_n..view_context.num_views).contains(&view_context.index) {
-            begin_idx_of_last_n
-        } else {
-            std::todo!()
-        };
-        let line = view_context
-            .names(active_view_name)
-            .enumerate()
-            .skip(first_view_index_to_render)
-            .take(num_possible_tabs)
-            .map(|(idx, view_name)| {
-                let spec = if idx == view_context.index {
-                    &color_scheme.tabs.active
-                } else if idx.is_even() {
-                    &color_scheme.tabs.primary
-                } else {
-                    &color_scheme.tabs.secondary
-                };
-
-                // TODO: don't allocate a string, but yield an itereator, flatten the iterator of iterators, and
-                // collect into a line
-                view_name
-                    .center(" ", Self::TAB_WIDTH.into())
-                    .collect::<String>()
-                    .fg(spec.fg)
-                    .fg(spec.bg)
-            })
-            .collect::<Line>();
-
-        line.ok()
+            self.terminal
+                .render_widget(buffer_row, buffer_area.width.row_at(0, render_y));
+        }
     }
 
     pub fn render(
@@ -241,29 +282,9 @@ impl View {
         view_buffer_context: &ViewBufferContext,
         color_scheme: &ColorScheme,
     ) -> Result<Vec<u8>, Error> {
-        // TODO: can i make all these Self::*() methods self.*() methods?
-        let terminal_area = self.terminal.area();
-        let title_line = self
-            .header
-            .title()
-            .convert::<Line>()
-            .centered()
-            .fg(color_scheme.title.fg)
-            .bg(color_scheme.title.bg)
-            .bold();
-        let tab_line = Self::tab_line(
-            terminal_area,
-            &view_buffer_context.context,
-            self.header.name(),
-            color_scheme,
-        )?;
-        let buffer_area = terminal_area.saturating_sub(0, 2);
-        let sub_lines = view_buffer_context.buffer.sub_lines(&self.position, buffer_area);
-        let lines = Self::lines(&self.selection_set, sub_lines, color_scheme);
-        let lines = title_line.once().chain_once(tab_line).chain(lines).collect::<Vec<_>>();
-        let paragraph = Paragraph::new(lines);
-
-        self.terminal.render_widget(paragraph, terminal_area);
+        self.render_title(color_scheme);
+        self.render_tabs(&view_buffer_context.context, color_scheme);
+        self.render_buffer(view_buffer_context.buffer, color_scheme);
 
         self.terminal.finish()
     }

@@ -1,23 +1,27 @@
 color_scheme:
   title:
     fg: "#c0c5ce"
-    bg: "#1a1d23"
+    bg: "#1a1d23"  # HSL(224, 14, 12)
   tabs:
     dots:
       fg: "#c0c5ce"
-      bg: "#1a1d23"
+      bg: "#1a1d23"  # HSL(224, 14, 12)
     active:
       fg: "#c0c5ce"
       bg: "#2b303b"
     primary:
       fg: "#c0c5ce"
-      bg: "#21242c"
+      bg: "#1f2128"  # HSL(224, 14, 14)
     secondary:
       fg: "#c0c5ce"
-      bg: "#1a1d23"
+      bg: "#1a1d23"  # HSL(224, 14, 12)
   buffer:
-    fg: "#c0c5ce"
-    bg: "#2b303b"
+    selected:
+      fg: "#c0c5ce"
+      bg: "#2b303b"
+    unselected:
+      fg: "#c0c5ce"
+      bg: "#2b303b"
 keymap:
   - { keys: [alt+i], command: move_up, args: { count: 1 } }
   - { keys: [shift+alt+i], command: move_up, args: { count: 5 } }

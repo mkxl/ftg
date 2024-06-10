@@ -1,3 +1,4 @@
+use crate::editor::color_scheme::Spec;
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
 use itertools::Either;
@@ -5,7 +6,12 @@ use num_traits::Num;
 use parking_lot::Mutex;
 use poem::web::websocket::Message as PoemMessage;
 use postcard::Error as PostcardError;
-use ratatui::{layout::Rect, text::Span};
+use ratatui::{
+    layout::Rect,
+    style::Stylize,
+    text::{Span, Text},
+    widgets::Paragraph,
+};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
@@ -18,14 +24,12 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufReader, BufWriter, Error as IoError, Read, Write},
     iter::Once,
-    ops::{BitAnd, Div, Range, Rem},
+    ops::BitAnd,
     os::unix::fs::MetadataExt,
     path::Path,
     sync::Arc,
 };
 use ulid::Ulid;
-use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
 
 pub trait Any: Sized {
     // NOTE: likely will be used in the future for debugging
@@ -65,25 +69,18 @@ pub trait Any: Sized {
         BufWriter::new(self)
     }
 
-    fn center<'a>(&'a self, chr: &'a str, total_width: usize) -> impl Iterator<Item = &'a str>
-    where
-        Self: AsRef<str>,
-    {
-        let graphemes = self.iter_graphemes(0..total_width);
-        let rem_width = total_width.saturating_sub(self.as_ref().width());
-        let right_width = rem_width / 2;
-        let left_width = rem_width.saturating_sub(right_width);
-        let left = chr.iter_repeat(left_width);
-        let right = chr.iter_repeat(right_width);
-
-        left.chain(graphemes).chain(right)
-    }
-
     fn chain_once<T>(self, item: T) -> impl Iterator<Item = T>
     where
         Self: Iterator<Item = T>,
     {
         self.chain(item.once())
+    }
+
+    fn color<'a, T2, T1: Stylize<'a, T2>>(self, spec: &Spec) -> T2
+    where
+        Self: Stylize<'a, T1>,
+    {
+        self.fg(spec.fg).bg(spec.bg)
     }
 
     fn convert<T: From<Self>>(self) -> T {
@@ -121,7 +118,7 @@ pub trait Any: Sized {
     // NOTE: [https://stackoverflow.com/questions/69051429/what-is-the-function-to-get-the-quotient-and-remainder-divmod-for-rust#comment122040171_69051429]
     fn divmod(self, other: Self) -> (Self, Self)
     where
-        Self: Copy + Div<Self, Output = Self> + Rem<Self, Output = Self>,
+        Self: Copy + Num,
     {
         (self / other, self % other)
     }
@@ -176,22 +173,20 @@ pub trait Any: Sized {
         (*self) & Self::one() == Self::zero()
     }
 
-    fn iter_graphemes(&self, range: Range<usize>) -> impl Iterator<Item = &str>
-    where
-        Self: AsRef<str>,
-    {
-        self.as_ref().graphemes(true).skip(range.start).take(range.len())
-    }
-
-    fn iter_repeat(self, count: usize) -> impl Iterator<Item = Self>
-    where
-        Self: Copy,
-    {
-        std::iter::repeat(self).take(count)
-    }
-
     fn left<R>(self) -> Either<Self, R> {
         Either::Left(self)
+    }
+
+    fn row_at(self, x: u16, y: u16) -> Rect
+    where
+        Self: Into<u16>,
+    {
+        Rect {
+            x,
+            y,
+            width: self.into(),
+            height: 1,
+        }
     }
 
     fn mem_take(&mut self) -> Self
@@ -222,6 +217,13 @@ pub trait Any: Sized {
         Self: AsRef<Path>,
     {
         File::open(self)
+    }
+
+    fn paragraph<'a>(self) -> Paragraph<'a>
+    where
+        Self: Into<Text<'a>>,
+    {
+        Paragraph::new(self.into())
     }
 
     fn push_to(self, values: &mut Vec<Self>) {
@@ -259,7 +261,7 @@ pub trait Any: Sized {
         Rope::from_reader(self.open()?.buf_reader())
     }
 
-    fn saturating_sub(self, dx: u16, dy: u16) -> Rect
+    fn saturating_sub_from_top(self, dy: u16) -> Rect
     where
         Self: Into<Rect>,
     {
@@ -267,8 +269,8 @@ pub trait Any: Sized {
 
         Rect {
             x,
-            y,
-            width: width.saturating_sub(dx),
+            y: y.saturating_add(dy),
+            width,
             height: height.saturating_sub(dy),
         }
     }
