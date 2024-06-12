@@ -69,13 +69,6 @@ pub trait Any: Sized {
         BufWriter::new(self)
     }
 
-    fn chain_once<T>(self, item: T) -> impl Iterator<Item = T>
-    where
-        Self: Iterator<Item = T>,
-    {
-        self.chain(item.once())
-    }
-
     fn color<'a, T2, T1: Stylize<'a, T2>>(self, spec: &Spec) -> T2
     where
         Self: Stylize<'a, T1>,
@@ -302,16 +295,6 @@ pub trait Any: Sized {
         Self: Iterator<Item = char>,
     {
         Span::raw(self.take(len).collect::<String>())
-    }
-
-    fn split3<T>(&mut self, index: usize) -> (&[T], &mut T, &[T])
-    where
-        Self: AsMut<[T]>,
-    {
-        let (head, tail) = self.as_mut().split_at_mut(index);
-        let (mid, tail) = tail.split_at_mut(1);
-
-        (head, &mut mid[0], tail)
     }
 
     fn unit(self) {}

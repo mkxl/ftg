@@ -3,6 +3,7 @@ pub mod color_scheme;
 pub mod command;
 pub mod editor;
 pub mod keymap;
+pub mod render;
 pub mod selection;
 pub mod terminal;
 pub mod view;

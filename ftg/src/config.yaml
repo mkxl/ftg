@@ -29,6 +29,8 @@ keymap:
   - { keys: [shift+alt+k], command: move_down, args: { count: 5 } }
   - { keys: [alt+j], command: move_left }
   - { keys: [alt+l], command: move_right }
+  - { keys: [shift+alt+j], command: previous_view }
+  - { keys: [shift+alt+l], command: next_view }
   - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }
   - { keys: [ctrl+w], command: search }
   - { keys: [ctrl+e], command: save }

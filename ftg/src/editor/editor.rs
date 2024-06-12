@@ -5,7 +5,7 @@ use crate::{
         color_scheme::ColorScheme,
         command::Command,
         keymap::{Context, Keymap},
-        view::view::{View, ViewBufferContext},
+        view::view::View,
         window::{Window, WindowArgs},
     },
     error::Error,
@@ -14,18 +14,6 @@ use crate::{
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
-
-macro_rules! active_view {
-    ($self:ident, $window_id:ident) => {{
-        let window = $self.windows.get_mut($window_id)?;
-        let (view, context) = window.active_view();
-        let buffer = $self.buffers.get_mut(&view.buffer_id())?;
-        let view_state = ViewBufferContext { buffer, context };
-
-        // NOTE: need turbofish here because E return type parameter is unspecified and cargo complains
-        (view, view_state).ok::<Error>()
-    }};
-}
 
 macro_rules! key_pattern {
     ($chr:ident) => {
@@ -70,8 +58,7 @@ impl Editor {
         }
     }
 
-    fn views(&mut self, args: WindowArgs) -> Result<Vec<View>, Error> {
-        let rect = args.size().rect();
+    fn create_views(&mut self, args: WindowArgs) -> Result<Vec<View>, Error> {
         let filepaths = args.into_paths();
         let filepaths = if filepaths.is_empty() {
             None.once().left()
@@ -80,7 +67,7 @@ impl Editor {
         };
         let views = filepaths.map(|filepath_opt| {
             let buffer_id = self.get_buffer_id(filepath_opt.as_deref())?;
-            let view = View::new(buffer_id, rect, filepath_opt)?;
+            let view = View::new(buffer_id, filepath_opt)?;
 
             view.ok()
         });
@@ -89,8 +76,9 @@ impl Editor {
     }
 
     pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
-        let views = self.views(args)?;
-        let window = Window::new(views);
+        let terminal_area = args.terminal_shape().rect();
+        let views = self.create_views(args)?;
+        let window = Window::new(terminal_area, views);
         let window_id = window.id();
 
         self.windows.insert(window);
@@ -110,27 +98,28 @@ impl Editor {
         }
     }
 
-    pub fn render(&mut self, window_id: &Ulid) -> Result<Option<Vec<u8>>, Error> {
-        // NOTE-b06978: use active_view!() macro rather than self.active_view() method to prevent
-        // `cannot borrow `self.keymap` as immutable because it is also borrowed as mutable`
-        let (view, view_state) = active_view!(self, window_id)?;
-
-        view.render(&view_state, &self.color_scheme)?.some().ok()
+    pub fn render(&mut self, window_id: &Ulid) -> Result<Vec<u8>, Error> {
+        self.windows
+            .get_mut(window_id)?
+            .render(&self.buffers, &self.color_scheme)
     }
 
     pub fn feed(&mut self, window_id: &Ulid, event: Event) -> Result<bool, Error> {
-        // NOTE-b06978
-        let (view, ViewBufferContext { buffer, .. }) = active_view!(self, window_id)?;
+        let window = self.windows.get_mut(window_id)?;
+        let view = window.active_view();
+        let buffer = self.buffers.get_mut(&view.buffer_id())?;
 
         match self.keymap.get(view.context(), &[event]) {
             (_, Ok(Command::Quit)) => return true.ok(),
-            (_, Err(&[Event::Resize(width, height)])) => view.resize(width, height)?,
+            (_, Err(&[Event::Resize(width, height)])) => window.resize(width, height)?,
             (_, Err(&[mouse_pattern!(ScrollUp)])) => view.move_up(1),
             (_, Err(&[mouse_pattern!(ScrollDown)])) => view.move_down(buffer, 1),
             (Context::Buffer, Ok(Command::MoveUp { count })) => view.move_up(*count),
             (Context::Buffer, Ok(Command::MoveDown { count })) => view.move_down(buffer, *count),
             (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
             (Context::Buffer, Ok(Command::MoveRight)) => view.move_right(),
+            (Context::Buffer, Ok(Command::NextView)) => window.next_view(),
+            (Context::Buffer, Ok(Command::PreviousView)) => window.previous_view(),
             (Context::Buffer, Ok(Command::Save)) => view.save(buffer).warn().unit(),
             (Context::Buffer, Ok(Command::Search)) => view.begin_search(),
             (Context::Buffer, Err(&[key_pattern!(chr)])) => view.insert_char(buffer, chr),

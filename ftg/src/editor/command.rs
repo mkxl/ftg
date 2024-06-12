@@ -8,6 +8,8 @@ pub enum Command {
     MoveDown { count: usize },
     MoveLeft,
     MoveRight,
+    NextView,
+    PreviousView,
     Quit,
     Save,
     Search,

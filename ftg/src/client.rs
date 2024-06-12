@@ -51,9 +51,9 @@ impl Client {
     }
 
     fn window_args(cli_args: CliArgs) -> Result<WindowArgs, Error> {
-        let size = crossterm::terminal::size()?;
+        let terminal_shape = crossterm::terminal::size()?;
         let current_dirpath = std::env::current_dir()?;
-        let window_args = WindowArgs::new(size, &current_dirpath, cli_args.paths);
+        let window_args = WindowArgs::new(terminal_shape, &current_dirpath, cli_args.paths);
 
         window_args.ok()
     }

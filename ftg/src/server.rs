@@ -16,7 +16,7 @@ use poem::{
     EndpointExt, Error as PoemError, Route, Server as PoemServer,
 };
 use poem_openapi::{param::Header, OpenApi, OpenApiService};
-use std::{fmt::Display, net::Ipv4Addr, sync::Arc};
+use std::{net::Ipv4Addr, sync::Arc};
 
 #[derive(Constructor)]
 pub struct Server {
@@ -87,7 +87,7 @@ impl Server {
                     }
                 }
                 () = std::future::ready(()) => {
-                    let Some(bytes) = editor.lock().render(&window_id)? else { std::todo!(); };
+                    let bytes = editor.lock().render(&window_id)?;
 
                     if bytes.is_empty() {
                         tokio::task::yield_now().await;
@@ -103,7 +103,8 @@ impl Server {
         ().ok()
     }
 
-    fn bad_request(err: impl Display) -> PoemError {
+    #[allow(clippy::needless_pass_by_value)]
+    fn bad_request<E: ToString>(err: E) -> PoemError {
         PoemError::from_string(err.to_string(), StatusCode::BAD_REQUEST)
     }
 

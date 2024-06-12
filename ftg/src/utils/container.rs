@@ -2,10 +2,13 @@ use crate::error::Error;
 use std::collections::{hash_map::Entry, HashMap};
 use ulid::Ulid;
 
-macro_rules! unknown_item {
-    ($self:ident, $id:ident) => {
-        || Error::UnknownItem($self.name.clone(), *$id)
-    };
+macro_rules! get_impl {
+    ($self:ident, $method:ident, $id:ident) => {{
+        $self
+            .values
+            .$method($id)
+            .ok_or_else(|| Error::UnknownItem($self.name.clone(), *$id))
+    }};
 }
 
 pub trait Identifiable {
@@ -39,10 +42,10 @@ impl<T: Identifiable> Container<T> {
     }
 
     pub fn get(&self, id: &Ulid) -> Result<&T, Error> {
-        self.values.get(id).ok_or_else(unknown_item!(self, id))
+        get_impl!(self, get, id)
     }
 
     pub fn get_mut(&mut self, id: &Ulid) -> Result<&mut T, Error> {
-        self.values.get_mut(id).ok_or_else(unknown_item!(self, id))
+        get_impl!(self, get_mut, id)
     }
 }

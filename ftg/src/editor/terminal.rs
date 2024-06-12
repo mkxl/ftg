@@ -16,12 +16,13 @@ pub struct Terminal {
     buffer_prev: Buffer,
 }
 
+// NOTE: based off of [https://docs.rs/ratatui/latest/src/ratatui/terminal/terminal.rs.html]
 impl Terminal {
     pub fn new(area: Rect) -> Self {
         let bytes = Bytes::default();
         let backend = CrosstermBackend::new(bytes.clone());
         let buffer_prev = Buffer::empty(area);
-        let buffer_curr = buffer_prev.clone();
+        let buffer_curr = Buffer::empty(area);
 
         Self {
             bytes,
@@ -44,11 +45,12 @@ impl Terminal {
         // NOTE: crossterm backend will render some unneeded (imo) bytes even if updates is empty
         if !updates.is_empty() {
             self.backend.draw(updates.into_iter())?;
+            self.backend.flush()?;
         }
 
         // NOTE:
         // after drawing the diff, (1) swap buffer_prev and buffer_curr and (2) reset what is to to be rendered
-        // imminently (ie buffer_curr)
+        // imminently (ie buffer_curr) (treat buffer_curr as a blank canvas)
         std::mem::swap(&mut self.buffer_prev, &mut self.buffer_curr);
         self.buffer_curr.reset();
 
