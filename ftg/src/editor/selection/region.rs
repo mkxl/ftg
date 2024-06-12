@@ -8,8 +8,6 @@ pub struct Region {
     reversed: bool,
 }
 
-// NOTE: despite nodit::Interval having an inclusive .end() method, Region has an exclusive .end()
-// method
 impl Region {
     fn from_values(start: usize, end: usize, reversed: bool) -> Option<Self> {
         if start <= end {
@@ -48,7 +46,7 @@ impl Region {
     }
 
     pub fn len(&self) -> usize {
-        self.end_exclusive() - self.start()
+        self.end_exclusive().saturating_sub(self.start())
     }
 
     pub fn intersect(&self, other: &Self) -> Option<Self> {
@@ -60,6 +58,20 @@ impl Region {
 
     pub fn with_start(&self, start: usize) -> Option<Self> {
         Self::from_values(start, self.end(), self.reversed())
+    }
+
+    pub fn translate_by(&self, count: isize) -> Self {
+        // TODO: see if i can use InclusiveInterval::translate; not using immediately bc of usize/isize business w
+        // std::ops::Add
+        let interval = nodit::interval::ii(
+            self.start().saturating_add_signed(count),
+            self.end().saturating_add_signed(count),
+        );
+
+        Self {
+            interval,
+            reversed: self.reversed(),
+        }
     }
 }
 

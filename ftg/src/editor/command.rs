@@ -4,6 +4,10 @@ use serde::Deserialize;
 #[serde(rename_all = "snake_case", tag = "command", content = "args")]
 pub enum Command {
     Close,
+    MoveBackward,
+    MoveDown,
+    MoveForward,
+    MoveUp,
     NextView,
     PreviousView,
     Quit,

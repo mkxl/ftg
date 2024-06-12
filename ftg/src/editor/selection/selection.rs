@@ -14,8 +14,10 @@ impl Selection {
         self
     }
 
+    // NOTE: NoditSet::iter() has type impl DoubleEndedIterator<Item = &K>:
+    // [https://docs.rs/nodit/latest/nodit/nodit/set/struct.NoditSet.html#method.iter]
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Region> {
-        return self.regions.iter();
+        self.regions.iter()
     }
 }
 

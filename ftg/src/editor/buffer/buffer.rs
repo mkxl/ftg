@@ -11,6 +11,12 @@ use ropey::{
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
+pub struct LineCharIndices {
+    pub start: usize,
+    pub end: usize,
+    pub query: usize,
+}
+
 #[derive(Constructor)]
 pub struct SubLine<'a> {
     slice: RopeSlice<'a>,
@@ -47,7 +53,7 @@ impl Buffer {
     }
 
     pub fn sub_lines<'a>(&'a self, position: &'a Position, area: Rect) -> impl 'a + Iterator<Item = SubLine<'a>> {
-        // TODO:
+        // TODO-c8394f:
         // - is there a more efficient way of getting the char_idx of the position.y-th line?
         // - i don't like that i need to call .line_to_char() bc .get_lines_at() doesn't contain that information bc
         //   rope slices themselves don't contain that information (publicly afaict)
@@ -87,6 +93,38 @@ impl Buffer {
 
     pub fn chunks(&self) -> Chunks {
         self.rope.chunks()
+    }
+
+    pub fn row_col(&self, char_idx: usize) -> (usize, usize) {
+        // TODO-9ec981:
+        // - figure out if this is the most efficient way to do this (calling multiple different rope methods)
+        // - TODO-c8394f: feels like this would be obviated if we could get the real index associated w a sub-rope-slice
+        let row = self.rope.char_to_line(char_idx);
+        let char_idx_of_line = self.rope.line_to_char(row);
+        let col = char_idx.saturating_sub(char_idx_of_line);
+
+        (row, col)
+    }
+
+    // NOTE:
+    // - row will saturate at the max possible row
+    // - col will saturate at the max possible col for the given row
+    pub fn char_idx(&self, row: usize, col: usize) -> LineCharIndices {
+        // TODO-9ec981
+        let max_row = self.rope.len_lines().saturating_sub(1);
+        let row = row.clamp(0, max_row);
+        let char_idx_of_line_start = self.rope.line_to_char(row);
+        let line_rope_slice = self.rope.line(row);
+        let max_col = line_rope_slice.len_chars().saturating_sub(1);
+        let col = col.clamp(0, max_col);
+        let char_idx = char_idx_of_line_start.saturating_add(col);
+        let char_idx_of_line_end = char_idx.saturating_add(col);
+
+        LineCharIndices {
+            start: char_idx_of_line_start,
+            end: char_idx_of_line_end,
+            query: char_idx,
+        }
     }
 }
 

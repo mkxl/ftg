@@ -66,6 +66,48 @@ impl View {
         self.context
     }
 
+    fn translate_by(&mut self, count: isize) {
+        let selection = self.selection_set.primary_mut();
+
+        *selection = selection.iter().map(|region| region.translate_by(count)).collect();
+    }
+
+    pub fn translate_by_line(&mut self, buffer: &Buffer, count: isize) {
+        let selection = self.selection_set.primary_mut();
+
+        *selection = selection
+            .iter()
+            .map(|region| {
+                let (row, col) = buffer.row_col(region.start());
+                let row = row.saturating_add_signed(count);
+                let line_char_indices = buffer.char_idx(row, col);
+                let start = line_char_indices.query;
+                let end = start.saturating_add(region.len().saturating_sub(1)).min(line_char_indices.end);
+
+                // tracing::info(original_start = region.start(), original_end = region.end(), new_start = start, new_end = end);
+
+                // TODO: change
+                Region::ii(start, end).unwrap()
+            })
+            .collect();
+    }
+
+    pub fn move_backward(&mut self) {
+        self.translate_by(-1);
+    }
+
+    pub fn move_down(&mut self, buffer: &Buffer) {
+        self.translate_by_line(buffer, 1);
+    }
+
+    pub fn move_forward(&mut self) {
+        self.translate_by(1);
+    }
+
+    pub fn move_up(&mut self, buffer: &Buffer) {
+        self.translate_by_line(buffer, -1);
+    }
+
     pub fn scroll_down(&mut self, buffer: &Buffer, count: usize) {
         let max_y = buffer.len_lines().saturating_sub(2);
 

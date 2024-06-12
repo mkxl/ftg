@@ -23,15 +23,19 @@ color_scheme:
       fg: "#c0c5ce"
       bg: "#2b303b"  # HSL(221, 16, 20)
 keymap:
+  - { keys: [shift+alt+j], command: previous_view }
+  - { keys: [left], command: move_backward }
+  - { keys: [down], command: move_down }
+  - { keys: [right], command: move_forward }
+  - { keys: [up], command: move_up }
+  - { keys: [shift+alt+l], command: next_view }
+  - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }
   - { keys: [alt+i], command: scroll_up, args: { count: 1 } }
   - { keys: [shift+alt+i], command: scroll_up, args: { count: 5 } }
   - { keys: [alt+k], command: scroll_down, args: { count: 1 } }
   - { keys: [shift+alt+k], command: scroll_down, args: { count: 5 } }
   - { keys: [alt+j], command: scroll_left, args: { count: 1 } }
   - { keys: [alt+l], command: scroll_right, args: { count: 1 } }
-  - { keys: [shift+alt+j], command: previous_view }
-  - { keys: [shift+alt+l], command: next_view }
-  - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }
   - { keys: [ctrl+w], command: search }
   - { keys: [ctrl+e], command: save }
   - { keys: [esc], command: close, contexts: [search] }
