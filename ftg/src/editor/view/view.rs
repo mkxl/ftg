@@ -66,23 +66,23 @@ impl View {
         self.context
     }
 
-    pub fn move_down(&mut self, buffer: &Buffer, count: usize) {
+    pub fn scroll_down(&mut self, buffer: &Buffer, count: usize) {
         let max_y = buffer.len_lines().saturating_sub(2);
 
         self.position.y = self.position.y.saturating_add(count).min(max_y);
     }
 
-    pub fn move_up(&mut self, count: usize) {
+    pub fn scroll_up(&mut self, count: usize) {
         self.position.y = self.position.y.saturating_sub(count);
     }
 
-    pub fn move_left(&mut self) {
-        self.position.x = self.position.x.saturating_sub(1);
+    pub fn scroll_left(&mut self, count: usize) {
+        self.position.x = self.position.x.saturating_sub(count);
     }
 
     // TODO: need to find max value (requires getting length of each line that's being rendered)
-    pub fn move_right(&mut self) {
-        self.position.x = self.position.x.saturating_add(1);
+    pub fn scroll_right(&mut self, count: usize) {
+        self.position.x = self.position.x.saturating_add(count);
     }
 
     pub fn begin_search(&mut self) {

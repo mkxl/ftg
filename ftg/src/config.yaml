@@ -8,7 +8,7 @@ color_scheme:
       bg: "#1a1d23"  # HSL(224, 14, 12)
     active:
       fg: "#c0c5ce"
-      bg: "#2b303b"
+      bg: "#2b303b"  # HSL(221, 16, 20)
     primary:
       fg: "#c0c5ce"
       bg: "#1f2128"  # HSL(224, 14, 14)
@@ -18,17 +18,17 @@ color_scheme:
   buffer:
     selected:
       fg: "#c0c5ce"
-      bg: "#2b303b"
+      bg: "#404859"  # HSL(221, 16, 30)
     unselected:
       fg: "#c0c5ce"
-      bg: "#2b303b"
+      bg: "#2b303b"  # HSL(221, 16, 20)
 keymap:
-  - { keys: [alt+i], command: move_up, args: { count: 1 } }
-  - { keys: [shift+alt+i], command: move_up, args: { count: 5 } }
-  - { keys: [alt+k], command: move_down, args: { count: 1 } }
-  - { keys: [shift+alt+k], command: move_down, args: { count: 5 } }
-  - { keys: [alt+j], command: move_left }
-  - { keys: [alt+l], command: move_right }
+  - { keys: [alt+i], command: scroll_up, args: { count: 1 } }
+  - { keys: [shift+alt+i], command: scroll_up, args: { count: 5 } }
+  - { keys: [alt+k], command: scroll_down, args: { count: 1 } }
+  - { keys: [shift+alt+k], command: scroll_down, args: { count: 5 } }
+  - { keys: [alt+j], command: scroll_left, args: { count: 1 } }
+  - { keys: [alt+l], command: scroll_right, args: { count: 1 } }
   - { keys: [shift+alt+j], command: previous_view }
   - { keys: [shift+alt+l], command: next_view }
   - { keys: [ctrl+q], command: quit, contexts: [buffer, search] }

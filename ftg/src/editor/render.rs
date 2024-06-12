@@ -195,7 +195,7 @@ impl<'a> Render<'a> {
                 // NOTE: yield the intersection
                 sub_line_chars
                     .span(intersection.len())
-                    .bold()
+                    .reversed()
                     .push_to(&mut sub_line_spans);
 
                 // NOTE: update the current sub_line remainder so that it begins after the end of the intersection

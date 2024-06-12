@@ -105,6 +105,9 @@ impl Editor {
     }
 
     pub fn feed(&mut self, window_id: &Ulid, event: Event) -> Result<bool, Error> {
+        // TODO: remove
+        tracing::info!(?event);
+
         let window = self.windows.get_mut(window_id)?;
         let view = window.active_view();
         let buffer = self.buffers.get_mut(&view.buffer_id())?;
@@ -112,12 +115,14 @@ impl Editor {
         match self.keymap.get(view.context(), &[event]) {
             (_, Ok(Command::Quit)) => return true.ok(),
             (_, Err(&[Event::Resize(width, height)])) => window.resize(width, height)?,
-            (_, Err(&[mouse_pattern!(ScrollUp)])) => view.move_up(1),
-            (_, Err(&[mouse_pattern!(ScrollDown)])) => view.move_down(buffer, 1),
-            (Context::Buffer, Ok(Command::MoveUp { count })) => view.move_up(*count),
-            (Context::Buffer, Ok(Command::MoveDown { count })) => view.move_down(buffer, *count),
-            (Context::Buffer, Ok(Command::MoveLeft)) => view.move_left(),
-            (Context::Buffer, Ok(Command::MoveRight)) => view.move_right(),
+            (_, Err(&[mouse_pattern!(ScrollUp)])) => view.scroll_up(1),
+            (_, Err(&[mouse_pattern!(ScrollDown)])) => view.scroll_down(buffer, 1),
+            (_, Err(&[mouse_pattern!(ScrollLeft)])) => view.scroll_left(1),
+            (_, Err(&[mouse_pattern!(ScrollRight)])) => view.scroll_right(1),
+            (Context::Buffer, Ok(Command::ScrollUp { count })) => view.scroll_up(*count),
+            (Context::Buffer, Ok(Command::ScrollDown { count })) => view.scroll_down(buffer, *count),
+            (Context::Buffer, Ok(Command::ScrollLeft { count })) => view.scroll_left(*count),
+            (Context::Buffer, Ok(Command::ScrollRight { count })) => view.scroll_right(*count),
             (Context::Buffer, Ok(Command::NextView)) => window.next_view(),
             (Context::Buffer, Ok(Command::PreviousView)) => window.previous_view(),
             (Context::Buffer, Ok(Command::Save)) => view.save(buffer).warn().unit(),
