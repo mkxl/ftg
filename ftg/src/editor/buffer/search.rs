@@ -61,9 +61,7 @@ impl<'q, 'r> Iterator for SearchIter<'q, 'r> {
                     (true, None) => {
                         self.possible_matches.swap_remove(i);
 
-                        // NOTE: by construction, begin <= idx, and so Region::ii(begin, idx) will always return a
-                        // Some variant; we take advantage of that as the return type of Iterator::next()
-                        return Region::ii(begin, idx);
+                        return Region::ii(begin, idx).some();
                     }
 
                     // NOTE: query_chars is still valid, but has not been confirmed as a match

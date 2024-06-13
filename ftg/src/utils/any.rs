@@ -159,6 +159,15 @@ pub trait Any: Sized {
         self.as_ref().metadata()?.ino().convert::<u128>().convert::<Ulid>().ok()
     }
 
+    fn into_inner<T>(self) -> T
+    where
+        Self: Into<Result<T, T>>,
+    {
+        match self.into() {
+            Ok(value) | Err(value) => value,
+        }
+    }
+
     fn is_even(&self) -> bool
     where
         Self: Copy + Num + BitAnd<Self, Output = Self>,

@@ -1,92 +1,99 @@
 use crate::utils::any::Any;
-use derive_more::Constructor;
 use nodit::{InclusiveInterval, Interval};
 
-#[derive(Clone, Constructor, Copy)]
+// NOTE: Copy impl needed for InclusiveInterval impl: [https://docs.rs/nodit/latest/nodit/interval/trait.InclusiveInterval.html]
+#[derive(Clone, Copy)]
 pub struct Region {
-    interval: Interval<usize>,
+    begin: usize,
+    last: usize,
     reversed: bool,
 }
 
 impl Region {
-    fn from_values(start: usize, end: usize, reversed: bool) -> Option<Self> {
-        if start <= end {
-            Self::new(nodit::interval::ii(start, end), reversed).some()
+    fn new(begin: usize, last: usize, reversed: bool) -> Result<Self, Self> {
+        if begin <= last {
+            Self { begin, last, reversed }.ok()
         } else {
-            None
+            Self {
+                begin: last,
+                last: begin,
+                reversed,
+            }
+            .err()
         }
     }
 
-    pub fn unit(start: usize) -> Self {
-        Self::ii(start, start).unwrap()
+    pub fn ii(begin: usize, last: usize) -> Self {
+        Self::new(begin, last, false).into_inner()
     }
 
-    pub fn ii(start: usize, end: usize) -> Option<Self> {
-        Self::from_values(start, end, false)
+    pub fn try_ii(begin: usize, last: usize) -> Option<Self> {
+        Self::new(begin, last, false).ok()
     }
 
-    pub fn ie(start: usize, end_exclusive: usize) -> Option<Self> {
-        Self::ii(start, end_exclusive.saturating_sub(1))
+    pub fn unit(begin: usize) -> Self {
+        Self::ii(begin, begin)
     }
 
-    pub fn start(&self) -> usize {
-        self.interval.start()
+    pub fn try_ie(begin: usize, end: usize) -> Option<Self> {
+        let last = end.saturating_sub(1);
+        let result = Self::new(begin, last, false);
+
+        result.ok()
     }
 
-    pub fn end(&self) -> usize {
-        self.interval.end()
+    pub fn begin(&self) -> usize {
+        self.begin
     }
 
-    pub fn end_exclusive(&self) -> usize {
-        self.end().saturating_add(1)
+    pub fn last(&self) -> usize {
+        self.last
     }
 
     pub fn reversed(&self) -> bool {
         self.reversed
     }
 
+    pub fn end_exclusive(&self) -> usize {
+        self.last().saturating_add(1)
+    }
+
     pub fn len(&self) -> usize {
-        self.end_exclusive().saturating_sub(self.start())
+        self.end_exclusive().saturating_sub(self.begin())
     }
 
     pub fn intersect(&self, other: &Self) -> Option<Self> {
-        let start = self.start().max(other.start());
-        let end = self.end().min(other.end());
+        let begin = self.begin().max(other.begin());
+        let last = self.last().min(other.last());
 
-        Self::ii(start, end)
+        Self::try_ii(begin, last)
     }
 
-    pub fn with_start(&self, start: usize) -> Option<Self> {
-        Self::from_values(start, self.end(), self.reversed())
+    pub fn try_with_begin(&self, begin: usize) -> Option<Self> {
+        Self::new(begin, self.last(), self.reversed()).ok()
     }
 
     pub fn translate_by(&self, count: isize) -> Self {
-        // TODO: see if i can use InclusiveInterval::translate; not using immediately bc of usize/isize business w
-        // std::ops::Add
-        let interval = nodit::interval::ii(
-            self.start().saturating_add_signed(count),
-            self.end().saturating_add_signed(count),
-        );
+        let begin = self.begin().saturating_add_signed(count);
+        let last = self.last().saturating_add_signed(count);
+        let result = Self::new(begin, last, self.reversed());
 
-        Self {
-            interval,
-            reversed: self.reversed(),
-        }
+        result.into_inner()
     }
 }
 
 impl From<Interval<usize>> for Region {
     fn from(interval: Interval<usize>) -> Self {
-        Self::new(interval, false)
+        Self::ii(interval.start(), interval.end())
     }
 }
 
 impl InclusiveInterval<usize> for Region {
     fn start(&self) -> usize {
-        self.start()
+        self.begin()
     }
 
     fn end(&self) -> usize {
-        self.end()
+        self.last()
     }
 }

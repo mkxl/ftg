@@ -78,16 +78,15 @@ impl View {
         *selection = selection
             .iter()
             .map(|region| {
-                let (row, col) = buffer.row_col(region.start());
+                let (row, col) = buffer.row_col(region.begin());
                 let row = row.saturating_add_signed(count);
                 let line_char_indices = buffer.char_idx(row, col);
-                let start = line_char_indices.query;
-                let end = start.saturating_add(region.len().saturating_sub(1)).min(line_char_indices.end);
+                let begin = line_char_indices.query;
+                let last = begin
+                    .saturating_add(region.len().saturating_sub(1))
+                    .min(line_char_indices.last);
 
-                // tracing::info(original_start = region.start(), original_end = region.end(), new_start = start, new_end = end);
-
-                // TODO: change
-                Region::ii(start, end).unwrap()
+                Region::ii(begin, last)
             })
             .collect();
     }
@@ -156,7 +155,7 @@ impl View {
 
         for (region_idx, region) in selection.iter().enumerate() {
             let diff = region_idx.saturating_mul(len_chars);
-            let insert_idx = region.start().saturating_add(diff);
+            let insert_idx = region.begin().saturating_add(diff);
             let new_region = Region::unit(insert_idx.saturating_add(1));
 
             buffer.insert_char(insert_idx, chr).warn();

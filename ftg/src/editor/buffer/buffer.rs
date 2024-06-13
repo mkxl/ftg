@@ -12,8 +12,8 @@ use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
 
 pub struct LineCharIndices {
-    pub start: usize,
-    pub end: usize,
+    pub begin: usize,
+    pub last: usize,
     pub query: usize,
 }
 
@@ -73,8 +73,9 @@ impl Buffer {
                 let end = begin.saturating_add(area.width as usize).min(len_chars);
                 let begin = begin.min(end);
                 let slice = line_slice.slice(begin..end);
-                let region = Region::ie(line_char_idx + begin, line_char_idx + end);
-
+                let begin = line_char_idx.saturating_add(begin);
+                let end = line_char_idx.saturating_add(end);
+                let region = Region::try_ie(begin, end);
                 let sub_line = SubLine::new(slice, region);
 
                 line_char_idx += len_chars;
@@ -113,16 +114,16 @@ impl Buffer {
         // TODO-9ec981
         let max_row = self.rope.len_lines().saturating_sub(1);
         let row = row.clamp(0, max_row);
-        let char_idx_of_line_start = self.rope.line_to_char(row);
+        let char_idx_of_line_begin = self.rope.line_to_char(row);
         let line_rope_slice = self.rope.line(row);
         let max_col = line_rope_slice.len_chars().saturating_sub(1);
         let col = col.clamp(0, max_col);
-        let char_idx = char_idx_of_line_start.saturating_add(col);
-        let char_idx_of_line_end = char_idx.saturating_add(col);
+        let char_idx = char_idx_of_line_begin.saturating_add(col);
+        let char_idx_of_line_last = char_idx.saturating_add(col);
 
         LineCharIndices {
-            start: char_idx_of_line_start,
-            end: char_idx_of_line_end,
+            begin: char_idx_of_line_begin,
+            last: char_idx_of_line_last,
             query: char_idx,
         }
     }

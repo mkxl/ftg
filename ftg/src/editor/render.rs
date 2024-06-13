@@ -167,7 +167,7 @@ impl<'a> Render<'a> {
                     // NOTE: sub_line_sub_region is nonempty, so if the intersection is empty and selection_region
                     // is to the left of sub_line_sub_region, then selection_region must end before sub_line_sub_region
                     // begins, and i can skip to the next selection_region
-                    if selection_region.start() < sub_line_sub_region.start() {
+                    if selection_region.begin() < sub_line_sub_region.begin() {
                         selection_region_opt = selection_regions.next();
 
                         continue;
@@ -186,10 +186,10 @@ impl<'a> Render<'a> {
 
                 // NOTE: if the beginning of the current sub_line remainder is not included in the intersection, yield
                 // it
-                if sub_line_sub_region.start() < intersection.start() {
-                    sub_line_chars
-                        .span(intersection.start() - sub_line_sub_region.start())
-                        .push_to(&mut sub_line_spans);
+                if sub_line_sub_region.begin() < intersection.begin() {
+                    let len_chars = intersection.begin().saturating_sub(sub_line_sub_region.begin());
+
+                    sub_line_chars.span(len_chars).push_to(&mut sub_line_spans);
                 }
 
                 // NOTE: yield the intersection
@@ -199,7 +199,7 @@ impl<'a> Render<'a> {
                     .push_to(&mut sub_line_spans);
 
                 // NOTE: update the current sub_line remainder so that it begins after the end of the intersection
-                sub_line_sub_region_opt = sub_line_sub_region.with_start(intersection.end_exclusive());
+                sub_line_sub_region_opt = sub_line_sub_region.try_with_begin(intersection.end_exclusive());
             }
 
             let spec = if selection_region_on_this_line {
