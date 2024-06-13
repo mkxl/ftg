@@ -1,4 +1,4 @@
-use crate::{cli_args::CliArgs, editor::window::WindowArgs, error::Error, server::Server, utils::any::Any};
+use crate::{cli_args::CliArgs, editor::window::window::WindowArgs, error::Error, server::Server, utils::any::Any};
 use crossterm::{
     cursor::{Hide, Show},
     event::{DisableMouseCapture, EnableMouseCapture, EventStream},

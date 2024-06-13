@@ -1,5 +1,8 @@
 use crate::{
-    editor::{buffer::buffer::Buffer, color_scheme::ColorScheme, terminal::Terminal, view::view::View},
+    editor::{
+        buffer::buffer::Buffer, color_scheme::ColorScheme, terminal::Terminal, view::view::View,
+        window::project::Project,
+    },
     error::Error,
     utils::{any::Any, container::Container},
 };
@@ -8,12 +11,14 @@ use ratatui::{
     text::{Line, Span},
     widgets::Paragraph,
 };
+use std::borrow::Cow;
 
 pub struct Render<'a> {
     terminal: &'a mut Terminal,
     views: &'a [View],
     view_index: usize,
     view: &'a View,
+    project: &'a Project,
     buffer: &'a Buffer,
     color_scheme: &'a ColorScheme,
 }
@@ -26,6 +31,7 @@ impl<'a> Render<'a> {
         terminal: &'a mut Terminal,
         views: &'a [View],
         view_index: usize,
+        project: &'a Project,
         buffers: &'a Container<Buffer>,
         color_scheme: &'a ColorScheme,
     ) -> Result<Self, Error> {
@@ -36,6 +42,7 @@ impl<'a> Render<'a> {
             views,
             view_index,
             view,
+            project,
             buffer,
             color_scheme,
         };
@@ -44,14 +51,13 @@ impl<'a> Render<'a> {
     }
 
     fn render_title(&mut self) {
-        let title = self
-            .view
-            .header()
-            .title()
-            .paragraph()
-            .centered()
-            .color(&self.color_scheme.title)
-            .bold();
+        let view_title = self.view.header().title();
+        let title = if let Some(project_title) = self.project.title() {
+            std::format!("{view_title} - {project_title}").into()
+        } else {
+            Cow::Borrowed(view_title)
+        };
+        let title = title.paragraph().centered().color(&self.color_scheme.title).bold();
 
         self.terminal
             .render_widget(title, self.terminal.area().width.row_at(0, 0));

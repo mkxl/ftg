@@ -1,7 +1,6 @@
 use crate::editor::color_scheme::Spec;
 use ansi_parser::{AnsiParser, Output};
 use futures::{Sink, SinkExt};
-use itertools::Either;
 use num_traits::Num;
 use parking_lot::Mutex;
 use poem::web::websocket::Message as PoemMessage;
@@ -175,10 +174,6 @@ pub trait Any: Sized {
         (*self) & Self::one() == Self::zero()
     }
 
-    fn left<R>(self) -> Either<Self, R> {
-        Either::Left(self)
-    }
-
     fn row_at(self, x: u16, y: u16) -> Rect
     where
         Self: Into<u16>,
@@ -253,10 +248,6 @@ pub trait Any: Sized {
 
     fn replace_with(&mut self, src: Self) -> Self {
         std::mem::replace(self, src)
-    }
-
-    fn right<L>(self) -> Either<L, Self> {
-        Either::Right(self)
     }
 
     fn rope(&self) -> Result<Rope, IoError>

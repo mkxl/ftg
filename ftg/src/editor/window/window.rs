@@ -1,5 +1,8 @@
 use crate::{
-    editor::{buffer::buffer::Buffer, color_scheme::ColorScheme, render::Render, terminal::Terminal, view::view::View},
+    editor::{
+        buffer::buffer::Buffer, color_scheme::ColorScheme, render::Render, terminal::Terminal, view::view::View,
+        window::project::Project,
+    },
     error::Error,
     utils::{
         any::Any,
@@ -40,10 +43,11 @@ pub struct Window {
     views: Vec<View>,
     active_view_index: usize,
     terminal: Terminal,
+    project: Project,
 }
 
 impl Window {
-    pub fn new(terminal_area: Rect, views: Vec<View>) -> Self {
+    pub fn new(project: Project, views: Vec<View>, terminal_area: Rect) -> Self {
         let id = Ulid::new();
         let active_view_index = 0;
         let terminal = Terminal::new(terminal_area);
@@ -53,6 +57,7 @@ impl Window {
             views,
             active_view_index,
             terminal,
+            project,
         }
     }
 
@@ -89,6 +94,7 @@ impl Window {
             &mut self.terminal,
             &self.views,
             self.active_view_index,
+            &self.project,
             buffers,
             color_scheme,
         )?

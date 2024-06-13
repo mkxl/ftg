@@ -6,13 +6,19 @@ use crate::{
         command::Command,
         keymap::{Context, Keymap},
         view::view::View,
-        window::{Window, WindowArgs},
+        window::{
+            project::Project,
+            window::{Window, WindowArgs},
+        },
     },
     error::Error,
     utils::{any::Any, container::Container},
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-use std::{io::Error as IoError, path::Path};
+use std::{
+    io::Error as IoError,
+    path::{Path, PathBuf},
+};
 use ulid::Ulid;
 
 macro_rules! key_pattern {
@@ -58,34 +64,6 @@ impl Editor {
         }
     }
 
-    fn create_views(&mut self, args: WindowArgs) -> Result<Vec<View>, Error> {
-        let filepaths = args.into_paths();
-        let filepaths = if filepaths.is_empty() {
-            None.once().left()
-        } else {
-            filepaths.into_iter().map(Some).right()
-        };
-        let views = filepaths.map(|filepath_opt| {
-            let buffer_id = self.get_buffer_id(filepath_opt.as_deref())?;
-            let view = View::new(buffer_id, filepath_opt)?;
-
-            view.ok()
-        });
-
-        views.collect()
-    }
-
-    pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
-        let terminal_area = args.terminal_shape().rect();
-        let views = self.create_views(args)?;
-        let window = Window::new(terminal_area, views);
-        let window_id = window.id();
-
-        self.windows.insert(window);
-
-        window_id.ok()
-    }
-
     fn get_buffer_id(&mut self, filepath: Option<&Path>) -> Result<Ulid, IoError> {
         let Some(filepath) = filepath else {
             return self.buffers.insert(Buffer::default()).id().ok();
@@ -96,6 +74,48 @@ impl Editor {
         } else {
             self.buffers.insert(Buffer::from_filepath(filepath)?).id().ok()
         }
+    }
+
+    fn get_view(&mut self, path_opt: Option<PathBuf>) -> Result<View, Error> {
+        let buffer_id = self.get_buffer_id(path_opt.as_deref())?;
+        let view = View::new(buffer_id, path_opt)?;
+
+        view.ok()
+    }
+
+    fn new_window_helper(&mut self, args: WindowArgs) -> Result<(Project, Vec<View>), Error> {
+        let paths = args.into_paths();
+        let mut project = Project::new();
+        let mut views = Vec::new();
+
+        if paths.is_empty() {
+            let view = self.get_view(None)?;
+
+            views.push(view);
+        } else {
+            for path in paths {
+                if path.is_dir() {
+                    project.add_dirpath(path);
+                } else {
+                    let view = self.get_view(path.some())?;
+
+                    views.push(view);
+                }
+            }
+        }
+
+        (project, views).ok()
+    }
+
+    pub fn new_window(&mut self, args: WindowArgs) -> Result<Ulid, Error> {
+        let terminal_area = args.terminal_shape().rect();
+        let (project, views) = self.new_window_helper(args)?;
+        let window = Window::new(project, views, terminal_area);
+        let window_id = window.id();
+
+        self.windows.insert(window);
+
+        window_id.ok()
     }
 
     pub fn render(&mut self, window_id: &Ulid) -> Result<Vec<u8>, Error> {
