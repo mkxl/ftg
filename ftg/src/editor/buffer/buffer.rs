@@ -4,12 +4,10 @@ use crate::{
 };
 use derive_more::Constructor;
 use ratatui::layout::Rect;
-use ropey::{
-    iter::{Chars, Chunks},
-    Error as RopeyError, Rope, RopeSlice,
-};
+use ropey::{iter::Chunks, Error as RopeyError, Rope, RopeSlice};
 use std::{io::Error as IoError, path::Path};
 use ulid::Ulid;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub struct LineCharIndices {
     pub begin: usize,
@@ -24,12 +22,12 @@ pub struct SubLine<'a> {
 }
 
 impl<'a> SubLine<'a> {
-    pub fn chars(&self) -> Chars {
-        self.slice.chars()
-    }
-
     pub fn region(&self) -> Option<Region> {
         self.region
+    }
+
+    pub fn graphemes(&self) -> impl Iterator<Item = &str> {
+        self.slice.chunks().flat_map(|chunk_str| chunk_str.graphemes(true))
     }
 }
 

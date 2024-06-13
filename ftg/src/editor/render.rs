@@ -3,7 +3,11 @@ use crate::{
     error::Error,
     utils::{any::Any, container::Container},
 };
-use ratatui::{style::Stylize, text::Line, widgets::Paragraph};
+use ratatui::{
+    style::Stylize,
+    text::{Line, Span},
+    widgets::Paragraph,
+};
 
 pub struct Render<'a> {
     terminal: &'a mut Terminal,
@@ -136,13 +140,13 @@ impl<'a> Render<'a> {
 
         for (render_y, sub_line) in (2..).zip(sub_lines) {
             // NOTE-ad63f1:
-            // - we call sub_line.chars() and process the Chars iterator to avoid the O(log N) [1] cost of having to
-            //   index into the sub_line rope slice multiple times
+            // - we call sub_line.graphemes() and process the graphemes iterator to avoid the O(log N) [1] cost of
+            //   having to index into the sub_line rope slice multiple times
             // - see [2] for the source of the implementation
             // - [1]: [https://docs.rs/ropey/latest/ropey/struct.Rope.html#method.slice]
             // - [2]: [~/tree/projects/.scratch/python/notebooks/2024-05-07-chunks.ipynb]
             let mut sub_line_sub_region_opt = sub_line.region();
-            let mut sub_line_chars = sub_line.chars();
+            let mut sub_line_graphemes = sub_line.graphemes();
             let mut sub_line_spans = std::vec![];
             let mut selection_region_on_this_line = false;
 
@@ -156,9 +160,9 @@ impl<'a> Render<'a> {
                 // NOTE: if there are no more selection regions, yield the current sub_line remainder and continue
                 // onto the next sub_line
                 let Some(selection_region) = &selection_region_opt else {
-                    sub_line_chars
-                        .span(sub_line_sub_region.len())
-                        .push_to(&mut sub_line_spans);
+                    sub_line_graphemes
+                        .spans(sub_line_sub_region.len())
+                        .push_all_to(&mut sub_line_spans);
 
                     break;
                 };
@@ -175,9 +179,9 @@ impl<'a> Render<'a> {
 
                     // NOTE: otherwise, selection_region is to the right of sub_line_sub_region, and i can skip to the
                     // next sub_line after first yielding the current sub_line remainder
-                    sub_line_chars
-                        .span(sub_line_sub_region.len())
-                        .push_to(&mut sub_line_spans);
+                    sub_line_graphemes
+                        .spans(sub_line_sub_region.len())
+                        .push_all_to(&mut sub_line_spans);
 
                     break;
                 };
@@ -189,14 +193,14 @@ impl<'a> Render<'a> {
                 if sub_line_sub_region.begin() < intersection.begin() {
                     let len_chars = intersection.begin().saturating_sub(sub_line_sub_region.begin());
 
-                    sub_line_chars.span(len_chars).push_to(&mut sub_line_spans);
+                    sub_line_graphemes.spans(len_chars).push_all_to(&mut sub_line_spans);
                 }
 
                 // NOTE: yield the intersection
-                sub_line_chars
-                    .span(intersection.len())
-                    .reversed()
-                    .push_to(&mut sub_line_spans);
+                sub_line_graphemes
+                    .spans(intersection.len())
+                    .map(Span::reversed)
+                    .push_all_to(&mut sub_line_spans);
 
                 // NOTE: update the current sub_line remainder so that it begins after the end of the intersection
                 sub_line_sub_region_opt = sub_line_sub_region.try_with_begin(intersection.end_exclusive());

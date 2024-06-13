@@ -11,6 +11,7 @@ pub struct Region {
 
 impl Region {
     fn new(begin: usize, last: usize, reversed: bool) -> Result<Self, Self> {
+        // TODO: should i change it to [if (begin <= last) == reversed]
         if begin <= last {
             Self { begin, last, reversed }.ok()
         } else {

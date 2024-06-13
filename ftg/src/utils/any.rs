@@ -228,8 +228,11 @@ pub trait Any: Sized {
         Paragraph::new(self.into())
     }
 
-    fn push_to(self, values: &mut Vec<Self>) {
-        values.push(self);
+    fn push_all_to(self, values: &mut Vec<Self::Item>)
+    where
+        Self: IntoIterator,
+    {
+        values.extend(self);
     }
 
     fn read_to_string(&self) -> Result<String, IoError>
@@ -299,11 +302,11 @@ pub trait Any: Sized {
         Some(self)
     }
 
-    fn span(&mut self, len: usize) -> Span<'static>
+    fn spans<'a>(&mut self, count: usize) -> impl Iterator<Item = Span<'a>>
     where
-        Self: Iterator<Item = char>,
+        Self: Iterator<Item = &'a str>,
     {
-        Span::raw(self.take(len).collect::<String>())
+        self.take(count).map(Span::raw)
     }
 
     fn unit(self) {}
