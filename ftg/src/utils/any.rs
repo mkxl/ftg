@@ -147,10 +147,6 @@ pub trait Any: Sized {
         hasher.finish()
     }
 
-    fn immutable(&mut self) -> &Self {
-        &*self
-    }
-
     fn inode_id(self) -> Result<Ulid, IoError>
     where
         Self: AsRef<Path>,

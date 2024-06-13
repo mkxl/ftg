@@ -12,13 +12,10 @@ use crate::{
         },
     },
     error::Error,
-    utils::{any::Any, container::Container},
+    utils::{any::Any, container::Container, path::Path},
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-use std::{
-    io::Error as IoError,
-    path::{Path, PathBuf},
-};
+use std::io::Error as IoError;
 use ulid::Ulid;
 
 macro_rules! key_pattern {
@@ -76,8 +73,8 @@ impl Editor {
         }
     }
 
-    fn get_view(&mut self, path_opt: Option<PathBuf>) -> Result<View, Error> {
-        let buffer_id = self.get_buffer_id(path_opt.as_deref())?;
+    fn get_view(&mut self, path_opt: Option<Path>) -> Result<View, Error> {
+        let buffer_id = self.get_buffer_id(path_opt.as_ref())?;
         let view = View::new(buffer_id, path_opt)?;
 
         view.ok()
@@ -88,20 +85,20 @@ impl Editor {
         let mut project = Project::new();
         let mut views = Vec::new();
 
-        if paths.is_empty() {
+        for path in paths {
+            if path.is_dir() {
+                project.add_dirpath(path);
+            } else {
+                let view = self.get_view(path.some())?;
+
+                views.push(view);
+            }
+        }
+
+        if views.is_empty() {
             let view = self.get_view(None)?;
 
             views.push(view);
-        } else {
-            for path in paths {
-                if path.is_dir() {
-                    project.add_dirpath(path);
-                } else {
-                    let view = self.get_view(path.some())?;
-
-                    views.push(view);
-                }
-            }
         }
 
         (project, views).ok()

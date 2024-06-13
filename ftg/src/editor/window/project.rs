@@ -1,23 +1,10 @@
-use crate::{editor::view::header::Filepath, utils::any::Any};
+use crate::utils::{any::Any, path::Path};
 use itertools::Itertools;
-use path_clean::PathClean;
-use std::{
-    collections::HashSet,
-    fmt::{Display, Error as FmtError, Formatter},
-    path::PathBuf,
-};
-
-pub struct Name<'a>(&'a PathBuf);
-
-impl<'a> Display for Name<'a> {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), FmtError> {
-        Filepath::new(self.0.clean()).name().fmt(f)
-    }
-}
+use std::collections::HashSet;
 
 #[derive(Default)]
 pub struct Project {
-    dirpaths: HashSet<PathBuf>,
+    dirpaths: HashSet<Path>,
 }
 
 impl Project {
@@ -25,7 +12,7 @@ impl Project {
         Self::default()
     }
 
-    pub fn add_dirpath(&mut self, dirpath: PathBuf) {
+    pub fn add_dirpath(&mut self, dirpath: Path) {
         self.dirpaths.insert(dirpath);
     }
 
@@ -33,7 +20,7 @@ impl Project {
         if self.dirpaths.is_empty() {
             None
         } else {
-            self.dirpaths.iter().map(Name).join(", ").some()
+            self.dirpaths.iter().filter_map(Path::name).join(", ").some()
         }
     }
 }

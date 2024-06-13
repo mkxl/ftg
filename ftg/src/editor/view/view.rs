@@ -6,9 +6,9 @@ use crate::{
         view::{header::Header, search::Search},
     },
     error::Error,
-    utils::{any::Any, container::Identifiable, position::Position},
+    utils::{any::Any, container::Identifiable, path::Path, position::Position},
 };
-use std::{io::Error as IoError, path::PathBuf};
+use std::io::Error as IoError;
 use ulid::Ulid;
 
 pub struct View {
@@ -22,7 +22,7 @@ pub struct View {
 }
 
 impl View {
-    pub fn new(buffer_id: Ulid, filepath: Option<PathBuf>) -> Result<Self, Error> {
+    pub fn new(buffer_id: Ulid, filepath: Option<Path>) -> Result<Self, Error> {
         let id = Ulid::new();
         let header = Header::new(filepath);
         let position = Position::zero();

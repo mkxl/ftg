@@ -7,24 +7,27 @@ use crate::{
     utils::{
         any::Any,
         container::{Container, Identifiable},
+        path::Path,
     },
 };
+use path_clean::PathClean;
 use ratatui::layout::Rect;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::{Path as StdPath, PathBuf};
 use ulid::Ulid;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct WindowArgs {
     terminal_shape: (u16, u16),
-    paths: Vec<PathBuf>,
+    paths: Vec<Path>,
 }
 
 impl WindowArgs {
-    pub fn new(terminal_shape: (u16, u16), current_dirpath: &Path, mut paths: Vec<PathBuf>) -> Self {
-        for path in &mut paths {
-            *path = current_dirpath.join(path.immutable());
-        }
+    pub fn new(terminal_shape: (u16, u16), current_dirpath: &StdPath, paths: Vec<PathBuf>) -> Self {
+        let paths = paths
+            .into_iter()
+            .map(|path| current_dirpath.join(path).clean().into())
+            .collect();
 
         Self { terminal_shape, paths }
     }
@@ -33,7 +36,7 @@ impl WindowArgs {
         &self.terminal_shape
     }
 
-    pub fn into_paths(self) -> Vec<PathBuf> {
+    pub fn into_paths(self) -> Vec<Path> {
         self.paths
     }
 }

@@ -1,11 +1,11 @@
 use crate::{
     editor::{buffer::search::SearchIter, selection::region::Region},
-    utils::{any::Any, container::Identifiable, position::Position},
+    utils::{any::Any, container::Identifiable, path::Path, position::Position},
 };
 use derive_more::Constructor;
 use ratatui::layout::Rect;
 use ropey::{iter::Chunks, Error as RopeyError, Rope, RopeSlice};
-use std::{io::Error as IoError, path::Path};
+use std::io::Error as IoError;
 use ulid::Ulid;
 use unicode_segmentation::UnicodeSegmentation;
 
