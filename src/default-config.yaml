@@ -1,0 +1,15 @@
+theme:
+    main:
+        fg: "#B7B9BC"
+        bg: "#1A1D23"
+
+key_map:
+    - keys: ["ctrl+c"]
+      command:
+        command: quit
+    # - keys: ["up"]
+    #   command: scroll_up
+    # - keys: ["down"]
+    #   command: scroll_down
+    # - keys: ["ctrl+shift+s"]
+    #   command: toggle_tab_sidebar
