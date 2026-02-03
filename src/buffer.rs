@@ -29,12 +29,16 @@ impl Buffer {
     }
 
     fn set_rope(&mut self, rope: Rope) {
-        self.size = rope.as_slice().num_lines_and_extended_graphemes();
+        self.size = rope.as_rope_slice().num_lines_and_extended_graphemes();
         self.rope = rope;
     }
 
     pub const fn buffer_id(&self) -> Ulid {
         self.buffer_id
+    }
+
+    pub const fn size(&self) -> PointUsize {
+        self.size
     }
 
     pub async fn from_filepath(filepath: &Utf8Path) -> Result<Self, IoError> {
@@ -52,7 +56,7 @@ impl Buffer {
         let extended_graphemes_index_range = scroll_offset.x.range_from_len(size.x.into());
 
         self.rope
-            .as_slice()
+            .as_rope_slice()
             .extended_graphemes_at_rect(lines_index_range, extended_graphemes_index_range)
             .map(|extended_graphemes| extended_graphemes.map(Span::from).collect())
             .collect()

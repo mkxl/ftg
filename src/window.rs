@@ -1,8 +1,10 @@
-use crate::{buffer_map::BufferMap, command::Command, config::Config, draw_state::DrawState, view::View};
+use crate::{
+    buffer_map::BufferMap, command::Command, config::Config, draw_state::DrawState, view::View, view_set::ViewSet,
+};
 use anyhow::Error as AnyhowError;
-use crossterm::event::{Event as CrosstermEvent, KeyEvent, MouseEvent};
+use crossterm::event::{Event as CrosstermEvent, KeyEvent, MouseEvent, MouseEventKind};
 use derive_more::Constructor;
-use mkutils::{ActiveVec, KeyMap, KeyMapState, Output, PointU16, Socket, Terminal, Utils};
+use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollCount, ScrollWhen, Socket, Terminal, Utils};
 use std::io::Error as IoError;
 use ulid::Ulid;
 
@@ -20,7 +22,7 @@ pub struct WindowOutput {
 
 pub struct Window {
     window_id: Ulid,
-    views: Option<ActiveVec<View>>,
+    view_set: ViewSet,
     socket: Socket,
     terminal: Terminal,
     key_map_state: KeyMapState<Command>,
@@ -28,15 +30,17 @@ pub struct Window {
 }
 
 impl Window {
+    const SCROLL_WHEN: ScrollWhen = ScrollWhen::Always;
+
     pub fn new(socket: Socket, screen_size: PointU16, key_map: &KeyMap<Command>) -> Result<Self, IoError> {
         let window_id = Ulid::new();
-        let views = None;
+        let view_set = ViewSet::empty();
         let terminal = Terminal::new(screen_size)?;
         let key_map_state = KeyMapState::new(key_map);
         let draw_state = DrawState::default();
         let window = Self {
             window_id,
-            views,
+            view_set,
             socket,
             terminal,
             key_map_state,
@@ -51,13 +55,7 @@ impl Window {
     }
 
     pub fn add_view(&mut self, view: View) {
-        if let Some(views) = &mut self.views {
-            let (active_index, _view) = views.push(view);
-
-            views.set_active_index(active_index);
-        } else {
-            self.views = ActiveVec::new(view).some();
-        }
+        self.view_set.add_view(view);
     }
 
     async fn on_command(
@@ -89,17 +87,24 @@ impl Window {
         }
     }
 
-    fn on_mouse_event(&mut self, mouse_event: MouseEvent) {
+    fn on_mouse_event(&mut self, buffer_map: &BufferMap, mouse_event: MouseEvent) -> Result<(), AnyhowError> {
+        let Some((active_view, buffer)) = self.view_set.active_pair_mut(buffer_map)? else {
+            return ().ok();
+        };
+        let buffer_size = buffer.size();
+        let scroll_count = ScrollCount::Fixed(1);
+
         match mouse_event.kind {
-            MouseEventKind::Down(_mouse_button) => content_view.toggle_locked_to_bottom(),
-            MouseEventKind::ScrollDown => content_view.scroll_down(&mouse_event.modifiers.into()),
-            MouseEventKind::ScrollUp => content_view.scroll_up(&mouse_event.modifiers.into()),
-            MouseEventKind::ScrollLeft => content_view.scroll_left(&mouse_event.modifiers.into()),
-            MouseEventKind::ScrollRight => content_view.scroll_right(&mouse_event.modifiers.into()),
+            // MouseEventKind::Down(_mouse_button) => active_view.toggle_locked_to_bottom(),
+            MouseEventKind::ScrollDown => active_view.scroll_down(scroll_count, buffer_size, Self::SCROLL_WHEN),
+            MouseEventKind::ScrollUp => active_view.scroll_up(scroll_count, buffer_size, Self::SCROLL_WHEN),
+            MouseEventKind::ScrollLeft => active_view.scroll_left(scroll_count, buffer_size, Self::SCROLL_WHEN),
+            MouseEventKind::ScrollRight => active_view.scroll_right(scroll_count, buffer_size, Self::SCROLL_WHEN),
             _ignored_mouse_event_kind => {}
         }
-    }
 
+        ().ok()
+    }
 
     pub async fn on_crossterm_event(
         &mut self,
@@ -109,7 +114,7 @@ impl Window {
     ) -> Output<(), AnyhowError> {
         match crossterm_event {
             CrosstermEvent::Key(key_event) => self.on_key_event(config, buffer_map, key_event).await,
-            CrosstermEvent::Mouse(mouse_event) => self.on_mouse_event(mouse_event).into_continue(),
+            CrosstermEvent::Mouse(mouse_event) => self.on_mouse_event(buffer_map, mouse_event)?.output_ok(),
             CrosstermEvent::Resize(num_cols, num_rows) => self.terminal.resize(num_cols, num_rows)?.output_ok(),
             _crossterm_event => ().output_ok(),
         }
@@ -125,7 +130,7 @@ impl Window {
         }
 
         self.draw_state
-            .draw(config, buffer_map, self.views.as_ref(), &mut self.terminal)?
+            .draw(config, buffer_map, &mut self.view_set, &mut self.terminal)?
             .send_to(&mut self.socket)
             .await?;
 

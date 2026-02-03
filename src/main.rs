@@ -7,6 +7,7 @@ mod config;
 mod draw_state;
 mod server;
 mod view;
+mod view_set;
 mod window;
 mod window_map;
 
