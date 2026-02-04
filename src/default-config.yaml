@@ -1,10 +1,14 @@
-theme:
+color_scheme:
     main:
         fg: "#B7B9BC"
         bg: "#1A1D23"
 
+theme:
+    buffer_border_lighten: 0.10
+    buffer_title_lighten: 0.40
+
 key_map:
-    - keys: ["ctrl+c"]
+    - keys: [ctrl+c]
       command:
         command: quit
     # - keys: ["up"]

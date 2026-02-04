@@ -95,7 +95,6 @@ impl Window {
         let scroll_count = ScrollCount::Fixed(1);
 
         match mouse_event.kind {
-            // MouseEventKind::Down(_mouse_button) => active_view.toggle_locked_to_bottom(),
             MouseEventKind::ScrollDown => active_view.scroll_down(scroll_count, buffer_size, Self::SCROLL_WHEN),
             MouseEventKind::ScrollUp => active_view.scroll_up(scroll_count, buffer_size, Self::SCROLL_WHEN),
             MouseEventKind::ScrollLeft => active_view.scroll_left(scroll_count, buffer_size, Self::SCROLL_WHEN),

@@ -32,11 +32,11 @@ impl View {
     }
 
     pub fn name(&self) -> Cow<'_, str> {
-        let Some(filepath) = &self.filepath else { return Self::DEFAULT_NAME.borrowed() };
+        let Some(filepath) = &self.filepath else { return Self::DEFAULT_NAME.to_cow_borrowed() };
 
         match filepath.unexpand_user() {
-            Cow::Borrowed(filepath) => filepath.as_str().borrowed(),
-            Cow::Owned(filepath) => filepath.into_string().owned(),
+            Cow::Borrowed(filepath) => filepath.as_str().to_cow_borrowed(),
+            Cow::Owned(filepath) => filepath.into_string().into_cow_owned(),
         }
     }
 
