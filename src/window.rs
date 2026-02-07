@@ -30,7 +30,7 @@ pub struct Window {
 }
 
 impl Window {
-    const SCROLL_WHEN: ScrollWhen = ScrollWhen::Always;
+    const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
 
     pub fn new(socket: Socket, screen_size: PointU16, key_map: &KeyMap<Command>) -> Result<Self, IoError> {
         let window_id = Ulid::new();

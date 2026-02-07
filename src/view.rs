@@ -1,3 +1,4 @@
+use crate::{region::Region, selection::Selection, selection_set::SelectionSet};
 use camino::Utf8PathBuf;
 use mkutils::{PointUsize, Scrollable, Utils};
 use std::borrow::Cow;
@@ -8,6 +9,7 @@ pub struct View {
     filepath: Option<Utf8PathBuf>,
     scroll_offset: PointUsize,
     latest_buffer_draw_size: PointUsize,
+    selection_set: SelectionSet,
 }
 
 impl View {
@@ -15,16 +17,22 @@ impl View {
     const INITIAL_SCROLL_OFFSET: PointUsize = PointUsize::ZERO;
     const INITIAL_LATEST_BUFFER_DRAW_SIZE: PointUsize = PointUsize::ZERO;
 
-    pub const fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
+    pub fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
         let scroll_offset = Self::INITIAL_SCROLL_OFFSET;
         let latest_buffer_draw_size = Self::INITIAL_LATEST_BUFFER_DRAW_SIZE;
+        let selection_set = Self::initial_selection_set();
 
         Self {
             buffer_id,
             filepath,
             scroll_offset,
             latest_buffer_draw_size,
+            selection_set,
         }
+    }
+
+    fn initial_selection_set() -> SelectionSet {
+        Region::ZERO.convert::<Selection>().into()
     }
 
     pub const fn buffer_id(&self) -> Ulid {

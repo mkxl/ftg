@@ -1,6 +1,6 @@
 use crate::{buffer_map::BufferMap, config::Config, view_set::ViewSet};
 use anyhow::Error as AnyhowError;
-use derive_more::Constructor;
+use derive_more::{Constructor, Into};
 use mkutils::{Default as MkutilsDefault, Terminal, Utils};
 use ratatui::{
     Frame,
@@ -11,7 +11,7 @@ use ratatui::{
 };
 use std::borrow::Cow;
 
-#[derive(Constructor, MkutilsDefault)]
+#[derive(Constructor, Into, MkutilsDefault)]
 struct ViewState<'a> {
     #[default(Self::DEFAULT_TITLE.to_cow_borrowed())]
     title: Cow<'a, str>,
@@ -20,12 +20,6 @@ struct ViewState<'a> {
 
 impl<'a> ViewState<'a> {
     const DEFAULT_TITLE: &'a str = "undefined";
-
-    fn into_parts(self) -> (Cow<'a, str>, Paragraph<'a>) {
-        let paragraph = self.lines.pipe_into(Paragraph::new);
-
-        (self.title, paragraph)
-    }
 }
 
 struct AreaSet {
@@ -40,7 +34,7 @@ pub struct DrawState;
 impl DrawState {
     const MARGIN_BUFFER_CONTENT: Margin = Margin::new(1, 1);
 
-    fn background_paragraph(config: &Config) -> Paragraph<'static> {
+    fn background(config: &Config) -> Paragraph<'static> {
         Paragraph::default()
             .fg(config.color_scheme.main.fg)
             .bg(config.color_scheme.main.bg)
@@ -60,6 +54,10 @@ impl DrawState {
         let buffer_title = buffer_title.fg(buffer_title_fg);
 
         Block::bordered().fg(buffer_border_fg).title(buffer_title)
+    }
+
+    fn buffer_content<'a>(config: &Config, buffer_lines: Vec<Line<'a>>) -> Paragraph<'a> {
+        Paragraph::new(buffer_lines).fg(config.color_scheme.main.fg)
     }
 
     fn view_state<'a>(
@@ -102,13 +100,11 @@ impl DrawState {
         // [buffer_title] to [title]
         view_set.set_latest_buffer_draw_size(area_set.buffer_content.as_size().into());
 
-        let (buffer_title, buffer_content) = Self::view_state(view_set, buffer_map, frame)?.into_parts();
+        let (buffer_title, buffer_lines) = Self::view_state(view_set, buffer_map, frame)?.into();
 
-        Self::background_paragraph(config).render_to(frame, area_set.background);
+        Self::background(config).render_to(frame, area_set.background);
         Self::buffer_block(config, &buffer_title).render_to(frame, area_set.buffer_block);
-        buffer_content
-            .fg(config.color_scheme.main.fg)
-            .render_to(frame, area_set.buffer_content);
+        Self::buffer_content(config, buffer_lines).render_to(frame, area_set.buffer_content);
 
         *title = buffer_title;
 
