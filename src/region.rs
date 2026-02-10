@@ -11,9 +11,9 @@ pub struct Region {
 impl Region {
     pub const ZERO: Self = Self::new(0, 0);
 
-    pub fn is_reversed(&self) -> bool {
-        self.end < self.begin
-    }
+    // pub fn is_reversed(&self) -> bool {
+    //     self.end < self.begin
+    // }
 }
 
 impl From<usize> for Region {
@@ -30,10 +30,10 @@ impl From<Interval<usize>> for Region {
 
 impl InclusiveInterval<usize> for Region {
     fn start(&self) -> &usize {
-        self.is_reversed().if_else(&self.begin, &self.end)
+        self.begin.ref_immut().min(&self.end)
     }
 
     fn end(&self) -> &usize {
-        self.is_reversed().if_else(&self.end, &self.begin)
+        self.begin.ref_immut().max(&self.end)
     }
 }

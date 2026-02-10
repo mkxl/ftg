@@ -1,5 +1,4 @@
 use crate::region::Region;
-use derive_more::From;
 use nodit::NoditSet;
 
 // NOTE: there is no direct [From<...>] implementation because we want to

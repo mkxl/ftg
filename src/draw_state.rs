@@ -5,7 +5,7 @@ use mkutils::{Default as MkutilsDefault, Terminal, Utils};
 use ratatui::{
     Frame,
     layout::{Margin, Rect},
-    style::{Color, Stylize},
+    style::Stylize,
     text::Line,
     widgets::{Block, Paragraph},
 };
@@ -74,7 +74,7 @@ impl DrawState {
         view_state.ok()
     }
 
-    fn area_set(&self, frame_area: Rect) -> AreaSet {
+    const fn area_set(&self, frame_area: Rect) -> AreaSet {
         let background = frame_area;
         let buffer_block = frame_area;
         let buffer_content = buffer_block.inner(Self::MARGIN_BUFFER_CONTENT);

@@ -19,7 +19,6 @@ enum CliCommand {
 }
 
 #[derive(Parser)]
-#[command(args_conflicts_with_subcommands = true)]
 pub struct CliArgs {
     #[arg(long = "config-file")]
     config_filepath: Option<Utf8PathBuf>,
