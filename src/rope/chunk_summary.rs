@@ -37,12 +37,15 @@ macro_rules! impl_dimension {
     };
 }
 
-// NOTE: [Clone] required for [Dimension]
-#[derive(Constructor, Clone, Default, Into)]
+// NOTE-6f85b5:
+// - [Self: Clone] required for [Self: Dimension<'a, ChunkSummary>]
+// - [Self: Ord] required for [Self: SeekTarget<'a, ChunkSummary, Self>] which is required for [Self: SeekTarget<'a,
+//   ChunkSummary, Dimensions<Self, D2, D3>>]
+#[derive(Constructor, Clone, Default, Eq, Into, Ord, PartialEq, PartialOrd)]
 pub struct LineOffset(usize);
 
-// NOTE: [Clone] required for [Dimension]
-#[derive(Constructor, Clone, Default, Into)]
+// NOTE-6f85b5:
+#[derive(Constructor, Clone, Default, Eq, Into, Ord, PartialEq, PartialOrd)]
 pub struct ExtendedGraphemeOffset(usize);
 
 impl_dimension!(ChunkSummary, LineOffset, num_newlines);

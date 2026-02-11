@@ -8,12 +8,6 @@ use zed_sum_tree::{Bias, Cursor, Dimensions, Item, SumTree, Summary};
 
 type Dims = Dimensions<LineOffset, ChunkSummary>;
 
-// fn foo<'a>(_x: impl zed_sum_tree::SeekTarget<'a, ChunkSummary, Dims>) {}
-
-// fn bar() {
-//     foo(LineOffset::new(0))
-// }
-
 #[derive(Default)]
 pub struct Rope {
     chunks: SumTree<Chunk>,
@@ -49,24 +43,22 @@ impl Rope {
         }
     }
 
-    pub fn atoms_at_line(&self, line_offset: usize) -> Iter<'_> {
-        std::todo!()
+    pub fn atom_iter(&self, line_offset: usize) -> AtomIter<'_> {
+        let mut chunk_cursor = self.chunks.cursor(Self::CONTEXT);
+        let line_offset = LineOffset::new(line_offset);
 
-        // let chunk_cursor = self.chunks.cursor(Self::CONTEXT);
-        // let line_offset = LineOffset::new(line_offset);
+        chunk_cursor.seek(&line_offset, Self::BIAS);
 
-        // chunk_cursor.seek(&line_offset, Self::BIAS);
-
-        // Iter::new(chunk_cursor)
+        AtomIter::new(chunk_cursor)
     }
 }
 
-pub struct Iter<'r> {
+pub struct AtomIter<'r> {
     chunk_cursor: Cursor<'r, 'static, Chunk, Dims>,
     extended_grapheme_iter: Flatten<OptionIntoIter<ExtendedGraphemeIter<'r>>>,
 }
 
-impl<'r> Iter<'r> {
+impl<'r> AtomIter<'r> {
     fn new(mut chunk_cursor: Cursor<'r, 'static, Chunk, Dims>) -> Self {
         let extended_grapheme_iter = chunk_cursor
             .iter_next()
@@ -87,7 +79,7 @@ pub struct Atom<'r> {
     extended_grapheme: &'r str,
 }
 
-impl<'r> Iterator for Iter<'r> {
+impl<'r> Iterator for AtomIter<'r> {
     type Item = Atom<'r>;
 
     fn next(&mut self) -> Option<Self::Item> {

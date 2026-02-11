@@ -52,7 +52,7 @@ impl ViewSet {
         let Some(views) = &mut self.views else { return };
 
         for view in views.as_slice_mut() {
-            view.set_latest_buffer_draw_size(latest_buffer_draw_size)
+            view.set_latest_buffer_draw_size(latest_buffer_draw_size);
         }
     }
 }

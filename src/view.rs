@@ -52,7 +52,7 @@ impl View {
         self.scroll_offset
     }
 
-    pub fn set_latest_buffer_draw_size(&mut self, latest_buffer_draw_size: PointUsize) {
+    pub const fn set_latest_buffer_draw_size(&mut self, latest_buffer_draw_size: PointUsize) {
         self.latest_buffer_draw_size = latest_buffer_draw_size;
     }
 }
