@@ -1,4 +1,5 @@
-use derive_more::{Constructor, Into};
+use derive_more::{Constructor, From, Into};
+use mkutils::Inner;
 use zed_sum_tree::ContextLessSummary;
 
 // NOTE: [Clone] required for [ContextLessSummary]
@@ -6,6 +7,16 @@ use zed_sum_tree::ContextLessSummary;
 pub struct ChunkSummary {
     num_extended_graphemes: usize,
     num_newlines: usize,
+}
+
+impl ChunkSummary {
+    pub fn num_extended_graphemes(&self) -> usize {
+        self.num_extended_graphemes
+    }
+
+    pub fn num_newlines(&self) -> usize {
+        self.num_newlines
+    }
 }
 
 impl ContextLessSummary for ChunkSummary {
@@ -41,11 +52,11 @@ macro_rules! impl_dimension {
 // - [Self: Clone] required for [Self: Dimension<'a, ChunkSummary>]
 // - [Self: Ord] required for [Self: SeekTarget<'a, ChunkSummary, Self>] which is required for [Self: SeekTarget<'a,
 //   ChunkSummary, Dimensions<Self, D2, D3>>]
-#[derive(Constructor, Clone, Default, Eq, Into, Ord, PartialEq, PartialOrd)]
+#[derive(Constructor, Clone, Default, Eq, Inner, Ord, PartialEq, PartialOrd)]
 pub struct LineOffset(usize);
 
 // NOTE-6f85b5:
-#[derive(Constructor, Clone, Default, Eq, Into, Ord, PartialEq, PartialOrd)]
+#[derive(Constructor, Clone, Default, Eq, Inner, Ord, PartialEq, PartialOrd)]
 pub struct ExtendedGraphemeOffset(usize);
 
 impl_dimension!(ChunkSummary, LineOffset, num_newlines);

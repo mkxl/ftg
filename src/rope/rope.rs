@@ -1,12 +1,13 @@
 use crate::rope::{
     chunk::{Chunk, ExtendedGraphemeIter},
-    chunk_summary::{ChunkSummary, LineOffset},
+    chunk_summary::{ExtendedGraphemeOffset, LineOffset},
 };
+use derive_more::Constructor;
 use mkutils::Utils;
 use std::{iter::Flatten, option::IntoIter as OptionIntoIter};
 use zed_sum_tree::{Bias, Cursor, Dimensions, Item, SumTree, Summary};
 
-type Dims = Dimensions<LineOffset, ChunkSummary>;
+type Dims = Dimensions<LineOffset, ExtendedGraphemeOffset>;
 
 #[derive(Default)]
 pub struct Rope {
@@ -14,7 +15,6 @@ pub struct Rope {
 }
 
 impl Rope {
-    const BIAS: Bias = Bias::Left;
     const CONTEXT: <<Chunk as Item>::Summary as Summary>::Context<'static> = ();
 
     #[must_use]
@@ -44,35 +44,62 @@ impl Rope {
     }
 
     pub fn atom_iter(&self, line_offset: usize) -> AtomIter<'_> {
-        let mut chunk_cursor = self.chunks.cursor(Self::CONTEXT);
-        let line_offset = LineOffset::new(line_offset);
-
-        chunk_cursor.seek(&line_offset, Self::BIAS);
-
-        AtomIter::new(chunk_cursor)
+        AtomIter::new(self, line_offset)
     }
 }
 
 pub struct AtomIter<'r> {
     chunk_cursor: Cursor<'r, 'static, Chunk, Dims>,
     extended_grapheme_iter: Flatten<OptionIntoIter<ExtendedGraphemeIter<'r>>>,
+    line_offset: usize,
+    extended_grapheme_offset: usize,
 }
 
 impl<'r> AtomIter<'r> {
-    fn new(mut chunk_cursor: Cursor<'r, 'static, Chunk, Dims>) -> Self {
-        let extended_grapheme_iter = chunk_cursor
-            .iter_next()
-            .map(Chunk::extended_grapheme_iter)
-            .into_iter()
-            .flatten();
+    const BIAS: Bias = Bias::Left;
+
+    fn new(rope: &'r Rope, target_line_offset: usize) -> Self {
+        let mut chunk_cursor = rope.chunks.cursor::<Dims>(Rope::CONTEXT);
+        let target_line_offset_type = LineOffset::new(target_line_offset);
+
+        chunk_cursor.seek(&target_line_offset_type, Self::BIAS);
+
+        let (extended_grapheme_iter, line_offset, extended_grapheme_offset) =
+            if let Some(chunk) = chunk_cursor.iter_next() {
+                // NOTE: [line_offset] and [extended_grapheme_offset] here are the offsets for the start of the chunk
+                let Dimensions(line_offset, extended_grapheme_offset, ()) = chunk_cursor.start();
+                let mut line_offset = line_offset.inner();
+                let mut extended_grapheme_offset = extended_grapheme_offset.inner();
+                let mut extended_grapheme_iter = chunk.extended_grapheme_iter();
+
+                while line_offset != target_line_offset {
+                    extended_grapheme_offset.saturating_add_assign(&extended_grapheme_iter.advance_to_next_line());
+                    line_offset.increment();
+                }
+
+                (extended_grapheme_iter.some(), line_offset, extended_grapheme_offset)
+            } else {
+                let rope_chunk_summary = rope.chunks.summary();
+
+                (
+                    None,
+                    rope_chunk_summary.num_newlines(),
+                    rope_chunk_summary.num_extended_graphemes(),
+                )
+            };
+
+        let extended_grapheme_iter = extended_grapheme_iter.into_iter().flatten();
 
         Self {
             chunk_cursor,
             extended_grapheme_iter,
+            line_offset,
+            extended_grapheme_offset,
         }
     }
 }
 
+#[derive(Constructor)]
 pub struct Atom<'r> {
     line_offset: usize,
     extended_grapheme_offset: usize,
@@ -85,10 +112,12 @@ impl<'r> Iterator for AtomIter<'r> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some(extended_grapheme) = self.extended_grapheme_iter.next() {
+                self.extended_grapheme_offset.increment();
+
                 return if extended_grapheme.is_newline() {
-                    None
+                    self.line_offset.increment().none()
                 } else {
-                    std::todo!("convert extended_grapheme to an atom")
+                    Atom::new(self.line_offset, self.extended_grapheme_offset, extended_grapheme).some()
                 };
             }
 
