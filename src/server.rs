@@ -32,7 +32,7 @@ impl Server {
     const CONTEXT_TOP_LEVEL: &str = "error in server top-level loop";
     const CONTEXT_NEW_VIEW: &str = "unable to create new view";
     const DEFAULT_CONFIG_YAML_STR: &str = std::include_str!("default-config.yaml");
-    const RENDER_PERIOD_DURATION: Duration = Duration::from_millis(5);
+    const TICK_PERIOD_DURATION: Duration = Duration::from_millis(5);
 
     fn new(config: Config) -> Self {
         let buffer_map = BufferMap::empty();
@@ -139,7 +139,7 @@ impl Server {
         let socket_filepath = Self::socket_filepath();
         let config = Self::config(config_filepath)?;
         let mut server = Self::new(config);
-        let mut render_interval = Self::RENDER_PERIOD_DURATION.into_interval();
+        let mut tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
 
         socket_filepath.remove_file().mem_drop();
 
@@ -151,7 +151,7 @@ impl Server {
                 window_crossterm_event = server.window_map.next_window_crossterm_event() => {
                     server.on_window_crossterm_event(window_crossterm_event).await
                 },
-                _instant = render_interval.tick() => server.on_tick().await.ok(),
+                _instant = tick_interval.tick() => server.on_tick().await.ok(),
             };
 
             unit_res.context(Self::CONTEXT_TOP_LEVEL).log_if_error().mem_drop();

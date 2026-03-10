@@ -2,6 +2,7 @@ use crate::{buffer::Buffer, buffer_map::BufferMap, view::View};
 use anyhow::Error as AnyhowError;
 use derive_more::From;
 use mkutils::{ActiveVec, PointUsize, Utils};
+use std::{iter::Flatten, option::IterMut as OptionIterMut, slice::IterMut as SliceIterMut};
 
 #[derive(From)]
 pub struct ViewSet {
@@ -45,14 +46,6 @@ impl ViewSet {
             views.set_active_index(active_index);
         } else {
             self.views = ActiveVec::new(view).some();
-        }
-    }
-
-    pub fn set_latest_buffer_draw_size(&mut self, latest_buffer_draw_size: PointUsize) {
-        let Some(views) = &mut self.views else { return };
-
-        for view in views.as_slice_mut() {
-            view.set_latest_buffer_draw_size(latest_buffer_draw_size);
         }
     }
 }

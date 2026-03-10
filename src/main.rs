@@ -6,7 +6,6 @@ mod command;
 mod config;
 mod draw_state;
 mod region;
-mod rope;
 mod selection;
 mod selection_set;
 mod server;

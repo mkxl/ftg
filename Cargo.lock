@@ -762,7 +762,6 @@ name = "ftg"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "arrayvec",
  "camino",
  "clap",
  "crossterm 0.29.0",
@@ -770,9 +769,9 @@ dependencies = [
  "futures",
  "mkutils",
  "nodit",
+ "num",
  "palette",
  "ratatui",
- "ropey",
  "serde",
  "tokio",
  "tracing",
@@ -901,6 +900,18 @@ dependencies = [
  "libc",
  "r-efi",
  "wasip2",
+]
+
+[[package]]
+name = "getset"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cf0fc11e47561d47397154977bc219f4cf809b2974facc3ccb3b89e2436f912"
+dependencies = [
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]
@@ -1348,24 +1359,25 @@ dependencies = [
 
 [[package]]
 name = "mkutils"
-version = "0.1.58"
+version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e526b81ee709df423120f861a8db4af62a2b3d05646f27ee8115e9e615b6717"
+checksum = "d3b74b26ffb964faf7b9e5c1f8b2a0bd7c36ea01ca0f858ef8c5830ec6eedf34"
 dependencies = [
  "anyhow",
+ "arrayvec",
  "bytes",
  "camino",
  "console-subscriber",
  "crossterm 0.29.0",
  "derive_more",
  "futures",
+ "getset",
  "home",
  "mkutils-macros",
  "num",
  "palette",
  "ratatui",
  "rmp-serde",
- "ropey",
  "serde",
  "serde_json",
  "serde_yaml_ng",
@@ -1376,15 +1388,18 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "trie-rs",
+ "tuplities-remove",
+ "typenum",
  "unicode-segmentation",
  "valuable",
+ "zed-sum-tree",
 ]
 
 [[package]]
 name = "mkutils-macros"
-version = "0.1.58"
+version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed6e317a9a0f483b3124e715428d2e99a795c48b9912f1add233ebb65fd87828"
+checksum = "b9bcd9ca243e1e16f620e86fac70ab5b4e1217c3607f09c91e40a30c33226f94"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1770,6 +1785,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-error-attr2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "proc-macro-error2"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
+dependencies = [
+ "proc-macro-error-attr2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2074,16 +2111,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ropey"
-version = "1.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93411e420bcd1a75ddd1dc3caf18c23155eda2c090631a85af21ba19e97093b5"
-dependencies = [
- "smallvec",
- "str_indices",
-]
-
-[[package]]
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2316,12 +2343,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "str_indices"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d08889ec5408683408db66ad89e0e1f93dff55c73a4ccc71c427d5b277ee47e6"
 
 [[package]]
 name = "strsim"
@@ -2822,6 +2843,29 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "tuplities-derive"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba55e3ed3086d31c9563f1d1cb7d24f1b9deaab25f7ccd1e070497aa0f26f8d0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "siphasher",
+ "syn 2.0.114",
+ "typenum",
+]
+
+[[package]]
+name = "tuplities-remove"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62d6507c90ef0c36803b0e82041a7568d0599b5d03fcfbca03f42def2e341c1d"
+dependencies = [
+ "tuplities-derive",
+ "typenum",
+]
 
 [[package]]
 name = "typeid"

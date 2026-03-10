@@ -4,7 +4,7 @@ use crate::{
 use anyhow::Error as AnyhowError;
 use crossterm::event::{Event as CrosstermEvent, KeyEvent, MouseEvent, MouseEventKind};
 use derive_more::Constructor;
-use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollCount, ScrollWhen, Socket, Terminal, Utils};
+use mkutils::{KeyMap, KeyMapState, Output, PointU16, Socket, Terminal, Utils};
 use std::io::Error as IoError;
 use ulid::Ulid;
 
@@ -30,8 +30,6 @@ pub struct Window {
 }
 
 impl Window {
-    const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
-
     pub fn new(socket: Socket, screen_size: PointU16, key_map: &KeyMap<Command>) -> Result<Self, IoError> {
         let window_id = Ulid::new();
         let view_set = ViewSet::empty();
@@ -50,7 +48,7 @@ impl Window {
         window.ok()
     }
 
-    pub const fn window_id(&self) -> Ulid {
+    pub fn window_id(&self) -> Ulid {
         self.window_id
     }
 
@@ -87,18 +85,16 @@ impl Window {
         }
     }
 
-    fn on_mouse_event(&mut self, buffer_map: &BufferMap, mouse_event: MouseEvent) -> Result<(), AnyhowError> {
-        let Some((active_view, buffer)) = self.view_set.active_pair_mut(buffer_map)? else {
+    fn on_mouse_event(&mut self, mouse_event: MouseEvent) -> Result<(), AnyhowError> {
+        let Some(active_view) = self.view_set.active_view_mut() else {
             return ().ok();
         };
-        let buffer_size = buffer.size();
-        let scroll_count = ScrollCount::Fixed(1);
 
         match mouse_event.kind {
-            MouseEventKind::ScrollDown => active_view.scroll_down(scroll_count, buffer_size, Self::SCROLL_WHEN),
-            MouseEventKind::ScrollUp => active_view.scroll_up(scroll_count, buffer_size, Self::SCROLL_WHEN),
-            MouseEventKind::ScrollLeft => active_view.scroll_left(scroll_count, buffer_size, Self::SCROLL_WHEN),
-            MouseEventKind::ScrollRight => active_view.scroll_right(scroll_count, buffer_size, Self::SCROLL_WHEN),
+            MouseEventKind::ScrollDown => active_view.scroll_view_state_mut().scroll_down(1),
+            MouseEventKind::ScrollUp => active_view.scroll_view_state_mut().scroll_up(1),
+            MouseEventKind::ScrollLeft => active_view.scroll_view_state_mut().scroll_left(1),
+            MouseEventKind::ScrollRight => active_view.scroll_view_state_mut().scroll_right(1),
             _ignored_mouse_event_kind => {}
         }
 
@@ -113,7 +109,7 @@ impl Window {
     ) -> Output<(), AnyhowError> {
         match crossterm_event {
             CrosstermEvent::Key(key_event) => self.on_key_event(config, buffer_map, key_event).await,
-            CrosstermEvent::Mouse(mouse_event) => self.on_mouse_event(buffer_map, mouse_event)?.output_ok(),
+            CrosstermEvent::Mouse(mouse_event) => self.on_mouse_event(mouse_event)?.output_ok(),
             CrosstermEvent::Resize(num_cols, num_rows) => self.terminal.resize(num_cols, num_rows)?.output_ok(),
             _crossterm_event => ().output_ok(),
         }

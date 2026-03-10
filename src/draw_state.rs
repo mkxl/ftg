@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
     layout::{Margin, Rect},
     style::Stylize,
-    text::Line,
+    text::Line as RatatuiLine,
     widgets::{Block, Paragraph},
 };
 use std::borrow::Cow;
@@ -15,7 +15,7 @@ use std::borrow::Cow;
 struct ViewState<'a> {
     #[default(Self::DEFAULT_TITLE.to_cow_borrowed())]
     title: Cow<'a, str>,
-    lines: Vec<Line<'a>>,
+    raw_ratatui_lines: Vec<RatatuiLine<'a>>,
 }
 
 impl<'a> ViewState<'a> {
@@ -56,20 +56,32 @@ impl DrawState {
         Block::bordered().fg(buffer_border_fg).title(buffer_title)
     }
 
-    fn buffer_content<'a>(config: &Config, buffer_lines: Vec<Line<'a>>) -> Paragraph<'a> {
-        Paragraph::new(buffer_lines).fg(config.color_scheme.main.fg)
+    fn buffer_content<'a>(config: &Config, buffer_raw_ratatui_lines: Vec<RatatuiLine<'a>>) -> Paragraph<'a> {
+        Paragraph::new(buffer_raw_ratatui_lines).fg(config.color_scheme.main.fg)
     }
 
     fn view_state<'a>(
-        view_set: &'a ViewSet,
+        view_set: &'a mut ViewSet,
         buffer_map: &'a BufferMap,
         frame: &mut Frame,
+        area_set: &AreaSet,
     ) -> Result<ViewState<'a>, AnyhowError> {
-        let Some((active_view, buffer)) = view_set.active_pair(buffer_map)? else {
+        let Some((active_view, buffer)) = view_set.active_pair_mut(buffer_map)? else {
             return ViewState::default().ok();
         };
-        let lines = buffer.lines(active_view.scroll_offset(), frame.area().as_size().into());
-        let view_state = ViewState::new(active_view.name(), lines);
+
+        active_view
+            .scroll_view_state_mut()
+            .set_latest_content_size(buffer.size());
+        active_view
+            .scroll_view_state_mut()
+            .set_latest_content_render_size(area_set.buffer_content.as_size().into());
+
+        let raw_ratatui_lines = buffer.raw_ratatui_lines(
+            active_view.scroll_view_state().scroll_offset(),
+            frame.area().as_size().into(),
+        );
+        let view_state = ViewState::new(active_view.name(), raw_ratatui_lines);
 
         view_state.ok()
     }
@@ -98,13 +110,13 @@ impl DrawState {
 
         // NOTE: need this mutable call on [view_set] to occur before i assign
         // [buffer_title] to [title]
-        view_set.set_latest_buffer_draw_size(area_set.buffer_content.as_size().into());
+        // view_set.set_latest_content_render_size(area_set.buffer_content.as_size().into());
 
-        let (buffer_title, buffer_lines) = Self::view_state(view_set, buffer_map, frame)?.into();
+        let (buffer_title, buffer_raw_ratatui_lines) = Self::view_state(view_set, buffer_map, frame, &area_set)?.into();
 
         Self::background(config).render_to(frame, area_set.background);
         Self::buffer_block(config, &buffer_title).render_to(frame, area_set.buffer_block);
-        Self::buffer_content(config, buffer_lines).render_to(frame, area_set.buffer_content);
+        Self::buffer_content(config, buffer_raw_ratatui_lines).render_to(frame, area_set.buffer_content);
 
         *title = buffer_title;
 
@@ -123,7 +135,7 @@ impl DrawState {
         terminal
             .draw(|frame| self.draw_impl(config, buffer_map, view_set, &mut title, frame))?
             .set_title(title)?
-            .take_byte_str()
+            .take_bytes()
             .ok()
     }
 }
