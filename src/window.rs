@@ -48,7 +48,7 @@ impl Window {
         window.ok()
     }
 
-    pub fn window_id(&self) -> Ulid {
+    pub const fn window_id(&self) -> Ulid {
         self.window_id
     }
 
@@ -119,6 +119,7 @@ impl Window {
         WindowCrosstermEvent::new(self.window_id, self.socket.recv().await)
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn on_tick_impl(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Output<(), AnyhowError> {
         if let Some(command) = self.key_map_state.on_tick(&config.key_map) {
             self.on_command(config, buffer_map, command.clone()).await?;

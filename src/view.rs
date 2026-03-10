@@ -1,6 +1,6 @@
 use crate::{region::Region, selection_set::SelectionSet};
 use camino::Utf8PathBuf;
-use mkutils::{PointUsize, ScrollViewState, ScrollWhen, Utils};
+use mkutils::{ScrollViewState, ScrollWhen, Utils};
 use std::borrow::Cow;
 use ulid::Ulid;
 
@@ -31,7 +31,7 @@ impl View {
         Region::ZERO.into()
     }
 
-    pub fn buffer_id(&self) -> Ulid {
+    pub const fn buffer_id(&self) -> Ulid {
         self.buffer_id
     }
 

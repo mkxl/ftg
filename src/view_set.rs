@@ -1,8 +1,7 @@
 use crate::{buffer::Buffer, buffer_map::BufferMap, view::View};
 use anyhow::Error as AnyhowError;
 use derive_more::From;
-use mkutils::{ActiveVec, PointUsize, Utils};
-use std::{iter::Flatten, option::IterMut as OptionIterMut, slice::IterMut as SliceIterMut};
+use mkutils::{ActiveVec, Utils};
 
 #[derive(From)]
 pub struct ViewSet {
@@ -35,6 +34,14 @@ impl ViewSet {
     ) -> Result<Option<(&'a mut View, &'a Buffer)>, AnyhowError> {
         let Some(active_view) = self.active_view_mut() else { return None.ok() };
         let buffer = buffer_map.get(&active_view.buffer_id()).check_present()?;
+
+        // NOTE-633c9d:
+        // - [.set_latest_content_size()] needs to be called on each buffer content update
+        // - we call it here as this is the point where the link between the view and its associated buffer is most
+        //   explicit
+        active_view
+            .scroll_view_state_mut()
+            .set_latest_content_size(buffer.size());
 
         active_view.pair(buffer).some().ok()
     }

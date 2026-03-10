@@ -32,7 +32,7 @@ impl Server {
     const CONTEXT_TOP_LEVEL: &str = "error in server top-level loop";
     const CONTEXT_NEW_VIEW: &str = "unable to create new view";
     const DEFAULT_CONFIG_YAML_STR: &str = std::include_str!("default-config.yaml");
-    const TICK_PERIOD_DURATION: Duration = Duration::from_millis(5);
+    const TICK_PERIOD_DURATION: Duration = Duration::from_millis(15);
 
     fn new(config: Config) -> Self {
         let buffer_map = BufferMap::empty();

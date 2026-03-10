@@ -20,9 +20,7 @@ impl Buffer {
         Self::new(Rope::new())
     }
 
-    #[tracing::instrument(err)]
     pub async fn from_filepath(filepath: &Utf8Path) -> Result<Self, IoError> {
-        // NOTE-bb39cb: [.pin()] to avoid [https://rust-lang.github.io/rust-clippy/master/index.html#large_futures]
         filepath
             .open_async()
             .await?
@@ -34,7 +32,7 @@ impl Buffer {
             .ok()
     }
 
-    pub fn buffer_id(&self) -> Ulid {
+    pub const fn buffer_id(&self) -> Ulid {
         self.buffer_id
     }
 
@@ -42,6 +40,7 @@ impl Buffer {
         self.rope.size()
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn raw_ratatui_lines(&self, scroll_offset: PointUsize, size: PointU16) -> Vec<RatatuiLine<'_>> {
         let line_offsets = scroll_offset.y.range_from_len(size.y.into());
         let extended_grapheme_offsets = scroll_offset.x.range_from_len(size.x.into());
