@@ -40,7 +40,6 @@ impl Buffer {
         self.rope.size()
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn raw_ratatui_lines(&self, scroll_offset: PointUsize, size: PointU16) -> Vec<RatatuiLine<'_>> {
         let line_offsets = scroll_offset.y.range_from_len(size.y.into());
         let extended_grapheme_offsets = scroll_offset.x.range_from_len(size.x.into());

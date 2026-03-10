@@ -1,7 +1,7 @@
 use crate::{buffer_map::BufferMap, config::Config, view_set::ViewSet};
 use anyhow::Error as AnyhowError;
 use derive_more::{Constructor, Into};
-use mkutils::{Default as MkutilsDefault, Terminal, Timer, Utils};
+use mkutils::{Default as MkutilsDefault, Terminal, Utils};
 use ratatui::{
     Frame,
     layout::{Margin, Rect},
@@ -96,7 +96,6 @@ impl DrawState {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     fn draw_impl<'a>(
         &self,
         config: &Config,
@@ -106,24 +105,17 @@ impl DrawState {
         frame: &mut Frame,
     ) -> Result<(), AnyhowError> {
         let area_set = self.area_set(frame.area());
-        let mut timer = Timer::now();
-
         let (buffer_title, buffer_raw_ratatui_lines) = Self::view_state(view_set, buffer_map, frame, &area_set)?.into();
-
-        timer.log("draw_impl(): Self::view_state(..)");
 
         Self::background(config).render_to(frame, area_set.background);
         Self::buffer_block(config, &buffer_title).render_to(frame, area_set.buffer_block);
         Self::buffer_content(config, buffer_raw_ratatui_lines).render_to(frame, area_set.buffer_content);
-
-        timer.log("draw_impl(): *.render_to(..)");
 
         *title = buffer_title;
 
         ().ok()
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn draw(
         &self,
         config: &Config,
@@ -132,12 +124,11 @@ impl DrawState {
         terminal: &mut Terminal,
     ) -> Result<Vec<u8>, AnyhowError> {
         let mut title = Cow::default();
-        let mut timer = Timer::now();
 
-        terminal.draw(|frame| self.draw_impl(config, buffer_map, view_set, &mut title, frame))?;
-
-        timer.log("draw(): terminal.draw(..)");
-
-        terminal.set_title(title)?.take_bytes().ok()
+        terminal
+            .draw(|frame| self.draw_impl(config, buffer_map, view_set, &mut title, frame))?
+            .set_title(title)?
+            .take_bytes()
+            .ok()
     }
 }
