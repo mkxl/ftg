@@ -1,6 +1,6 @@
 use crate::server::{Connect, Server};
 use anyhow::Error as AnyhowError;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use crossterm::event::EventStream as CrosstermEventStream;
 use futures::{SinkExt, StreamExt};
 use mkutils::{Output, Screen, Socket, Utils};
