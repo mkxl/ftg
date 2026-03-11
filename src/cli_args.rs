@@ -46,8 +46,12 @@ impl CliArgs {
             .init();
     }
 
-    async fn connect(&self, connect: Connect) -> Result<(), AnyhowError> {
-        Client::connect(connect).await.into_result()
+    async fn connect(self, connect: Connect) -> Result<(), AnyhowError> {
+        if let Some(tracing_filepath) = &self.tracing_filepath {
+            self.init_tracing(tracing_filepath.create()?);
+        }
+
+        Client::connect(connect, self.config_filepath).await.into_result()
     }
 
     async fn serve(&self) -> Result<(), AnyhowError> {

@@ -16,7 +16,8 @@ clap = { version = "4.5.56", features = ["derive"] }
 crossterm = { version = "0.29.0", features = ["event-stream", "libc", "serde", "use-dev-tty"] }
 derive_more = { version = "2.1.1", features = ["add", "constructor", "from", "mul"] }
 futures = "0.3.31"
-mkutils = { version = "0.1.92", features = ["async", "serde-extra", "tracing", "tui", "unstable"] }
+lits = "0.3.1"
+mkutils = { version = "0.1.95", features = ["async", "serde-extra", "tracing", "tui", "unstable"] }
 nodit = "0.10.0"
 num = "0.4.3"
 palette = { version = "0.7.6", features = ["serde"] }

@@ -10,7 +10,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
 use mkutils::{Output, PointU16, Screen, Socket, Utils};
 use serde::{Deserialize, Serialize};
-use std::{io::Error as IoError, ops::ControlFlow, time::Duration};
+use std::{fmt::Debug, io::Error as IoError, ops::ControlFlow, path::Path, time::Duration};
 use tokio::net::{UnixListener, UnixStream, unix::SocketAddr};
 use ulid::Ulid;
 
@@ -49,7 +49,7 @@ impl Server {
         Utf8Path::new("/tmp/ftg.socket")
     }
 
-    fn config(config_filepath: Option<&Utf8Path>) -> Result<Config, AnyhowError> {
+    fn config<P: AsRef<Path>>(config_filepath: Option<P>) -> Result<Config, AnyhowError> {
         if let Some(config_filepath) = config_filepath {
             config_filepath
                 .open()?
@@ -135,7 +135,7 @@ impl Server {
     }
 
     #[tracing::instrument(err)]
-    pub async fn serve(config_filepath: Option<&Utf8Path>) -> Result<(), AnyhowError> {
+    pub async fn serve<P: AsRef<Path> + Debug>(config_filepath: Option<P>) -> Result<(), AnyhowError> {
         let socket_filepath = Self::socket_filepath();
         let config = Self::config(config_filepath)?;
         let mut server = Self::new(config);

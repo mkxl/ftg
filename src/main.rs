@@ -18,7 +18,10 @@ use crate::cli_args::CliArgs;
 use anyhow::Error as AnyhowError;
 use clap::Parser;
 
-#[tokio::main]
+// NOTE: see [stack-overflow-1665eb]
+const THREAD_STACK_SIZE: usize = lits::bytes!("8 MiB") as usize;
+
+#[mkutils::main(thread_stack_size = THREAD_STACK_SIZE)]
 async fn main() -> Result<(), AnyhowError> {
     CliArgs::parse().run().await
 }

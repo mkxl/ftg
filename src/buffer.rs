@@ -25,8 +25,7 @@ impl Buffer {
             .open_async()
             .await?
             .buf_reader_async()
-            .rope_builder()
-            .build()
+            .rope_async()
             .await?
             .pipe_into(Self::new)
             .ok()

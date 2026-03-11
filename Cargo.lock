@@ -287,6 +287,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
 
 [[package]]
+name = "bytesize"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bd91ee7b2422bcb158d90ef4d14f75ef67f340943fc4149891dcce8f8b972a3"
+
+[[package]]
 name = "camino"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -767,6 +773,7 @@ dependencies = [
  "crossterm 0.29.0",
  "derive_more",
  "futures",
+ "lits",
  "mkutils",
  "nodit",
  "num",
@@ -1241,6 +1248,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
 
 [[package]]
+name = "lits"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1b3ae21771de5bdb00a7dc728ca20ea336d776551d2c1175687927ed0b2042f"
+dependencies = [
+ "bytesize",
+ "humantime",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1359,9 +1379,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils"
-version = "0.1.92"
+version = "0.1.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b0cf929189acac571390bfa2d4e8522827856cfc2dab00c62222ada7ef78cbe"
+checksum = "65d22d0506ed7d33da990471033b2363717a548a9aaf66bd61b6014522979671"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -1397,9 +1417,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils-macros"
-version = "0.1.92"
+version = "0.1.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffd1720bc7b2f9931c153b4c4fe2c73fe4f9b4182a536ff58562d147528fe2b7"
+checksum = "1580946e4b7cf8ab1fbf270a3c1afdbfedcbe6a9b08a4d59601f04473349e252"
 dependencies = [
  "heck",
  "proc-macro2",
