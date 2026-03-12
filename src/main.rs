@@ -9,8 +9,7 @@ mod region;
 mod selection;
 mod selection_set;
 mod server;
-mod view;
-mod view_set;
+mod views;
 mod window;
 mod window_map;
 

@@ -1,7 +1,6 @@
 use crate::{
     buffer_map::BufferMap,
     config::Config,
-    view::View,
     window::{Window, WindowCrosstermEvent},
     window_map::WindowMap,
 };
@@ -61,19 +60,16 @@ impl Server {
         .ok()
     }
 
-    async fn new_view(&mut self, filepath: Utf8PathBuf) -> Result<View, AnyhowError> {
-        let buffer_id = self.buffer_map.get_or_insert_from_filepath(&filepath).await?;
-        let view = View::new(buffer_id, filepath.some());
-
-        view.ok()
+    async fn get_or_insert_buffer_from_filepath(&mut self, filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
+        self.buffer_map.get_or_insert_from_filepath(&filepath).await
     }
 
     async fn new_window(&mut self, socket: Socket, connect: Connect) -> Result<Window, IoError> {
         let mut window = Window::new(socket, connect.size, &self.config.key_map)?;
 
         for path in connect.paths {
-            match self.new_view(path).await {
-                Ok(view) => window.add_view(view),
+            match self.get_or_insert_buffer_from_filepath(&path).await {
+                Ok(buffer_id) => window.add_new_view(buffer_id, path.some()),
                 Err(error) => error.context(Self::CONTEXT_NEW_VIEW).log_error().mem_drop(),
             }
         }

@@ -1,30 +1,11 @@
-use crate::{buffer_map::BufferMap, config::Config, view_set::ViewSet};
+use crate::{buffer_map::BufferMap, config::Config, views::ViewStateSet};
 use anyhow::Error as AnyhowError;
-use derive_more::{Constructor, Into};
-use mkutils::{Default as MkutilsDefault, Terminal, Utils};
-use ratatui::{
-    Frame,
-    layout::{Margin, Rect},
-    style::Stylize,
-    text::Line as RatatuiLine,
-    widgets::{Block, Paragraph},
-};
+use mkutils::{ScrollView, Terminal, Utils};
+use ratatui::{Frame, layout::Rect, style::Stylize, widgets::Paragraph};
 use std::borrow::Cow;
-
-#[derive(Constructor, Into, MkutilsDefault)]
-struct ViewState<'a> {
-    #[default(Self::DEFAULT_TITLE.to_cow_borrowed())]
-    title: Cow<'a, str>,
-    raw_ratatui_lines: Vec<RatatuiLine<'a>>,
-}
-
-impl<'a> ViewState<'a> {
-    const DEFAULT_TITLE: &'a str = "undefined";
-}
 
 struct AreaSet {
     background: Rect,
-    buffer_block: Rect,
     buffer_content: Rect,
 }
 
@@ -32,7 +13,17 @@ struct AreaSet {
 pub struct DrawState;
 
 impl DrawState {
-    const MARGIN_BUFFER_CONTENT: Margin = Margin::new(1, 1);
+    const EMPTY_VIEWS_TITLE: &str = "undefined";
+
+    const fn area_set(&self, frame_area: Rect) -> AreaSet {
+        let background = frame_area;
+        let buffer_content = frame_area;
+
+        AreaSet {
+            background,
+            buffer_content,
+        }
+    }
 
     fn background(config: &Config) -> Paragraph<'static> {
         Paragraph::default()
@@ -40,78 +31,29 @@ impl DrawState {
             .bg(config.color_scheme.main.bg)
     }
 
-    fn buffer_block<'a>(config: &Config, buffer_title: &'a str) -> Block<'a> {
-        let buffer_border_fg = config
-            .color_scheme
-            .main
-            .bg
-            .lighten_fixed(config.theme.buffer_border_lighten);
-        let buffer_title_fg = config
-            .color_scheme
-            .main
-            .bg
-            .lighten_fixed(config.theme.buffer_title_lighten);
-        let buffer_title = buffer_title.fg(buffer_title_fg);
-
-        Block::bordered().fg(buffer_border_fg).title(buffer_title)
+    fn empty_views() -> Paragraph<'static> {
+        Paragraph::default()
     }
 
-    fn buffer_content<'a>(config: &Config, buffer_raw_ratatui_lines: Vec<RatatuiLine<'a>>) -> Paragraph<'a> {
-        Paragraph::new(buffer_raw_ratatui_lines).fg(config.color_scheme.main.fg)
-    }
-
-    fn view_state<'a>(
-        view_set: &'a mut ViewSet,
-        buffer_map: &'a BufferMap,
-        frame: &mut Frame,
-        area_set: &AreaSet,
-    ) -> Result<ViewState<'a>, AnyhowError> {
-        let Some((active_view, buffer)) = view_set.active_pair_mut(buffer_map)? else {
-            return ViewState::default().ok();
-        };
-
-        // NOTE-633c9d
-        active_view
-            .scroll_view_state_mut()
-            .set_latest_content_render_size(area_set.buffer_content.as_size().into());
-
-        let raw_ratatui_lines = buffer.raw_ratatui_lines(
-            active_view.scroll_view_state().scroll_offset(),
-            frame.area().as_size().into(),
-        );
-        let view_state = ViewState::new(active_view.name(), raw_ratatui_lines);
-
-        view_state.ok()
-    }
-
-    const fn area_set(&self, frame_area: Rect) -> AreaSet {
-        let background = frame_area;
-        let buffer_block = frame_area;
-        let buffer_content = buffer_block.inner(Self::MARGIN_BUFFER_CONTENT);
-
-        AreaSet {
-            background,
-            buffer_block,
-            buffer_content,
-        }
-    }
-
-    fn draw_impl<'a>(
+    pub fn draw_impl<'a>(
         &self,
         config: &Config,
         buffer_map: &'a BufferMap,
-        view_set: &'a mut ViewSet,
+        view_state_set: &'a mut ViewStateSet,
         title: &mut Cow<'a, str>,
         frame: &mut Frame,
     ) -> Result<(), AnyhowError> {
         let area_set = self.area_set(frame.area());
-        let (buffer_title, buffer_raw_ratatui_lines) = Self::view_state(view_set, buffer_map, frame, &area_set)?.into();
 
         Self::background(config).render_to(frame, area_set.background);
-        Self::buffer_block(config, &buffer_title).render_to(frame, area_set.buffer_block);
-        Self::buffer_content(config, buffer_raw_ratatui_lines).render_to(frame, area_set.buffer_content);
 
-        *title = buffer_title;
+        if let Some(mut view) = view_state_set.active_view_mut(buffer_map)? {
+            view.render(frame, area_set.buffer_content);
+            title.assign(view.title().to_owned().into_cow_owned())
+        } else {
+            Self::empty_views().render_to(frame, area_set.buffer_content);
+            title.assign(Self::EMPTY_VIEWS_TITLE.to_cow_borrowed());
+        }
 
         ().ok()
     }
@@ -120,13 +62,13 @@ impl DrawState {
         &self,
         config: &Config,
         buffer_map: &BufferMap,
-        view_set: &mut ViewSet,
+        view_state_set: &mut ViewStateSet,
         terminal: &mut Terminal,
     ) -> Result<Vec<u8>, AnyhowError> {
         let mut title = Cow::default();
 
         terminal
-            .draw(|frame| self.draw_impl(config, buffer_map, view_set, &mut title, frame))?
+            .draw(|frame| self.draw_impl(config, buffer_map, view_state_set, &mut title, frame))?
             .set_title(title)?
             .take_bytes()
             .ok()

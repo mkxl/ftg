@@ -32,6 +32,10 @@ impl BufferMap {
         self.buffer_map.get(buffer_id)
     }
 
+    pub fn get_mut(&mut self, buffer_id: &Ulid) -> Option<&mut Buffer> {
+        self.buffer_map.get_mut(buffer_id)
+    }
+
     pub async fn get_or_insert_from_filepath(&mut self, filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
         let inode = filepath
             .metadata_async()

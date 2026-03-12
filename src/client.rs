@@ -30,11 +30,11 @@ impl Client {
         // NOTE: converting a future to a task requires the future contain only static references
         // effectively requiring that [config_filepath] be [Option<Utf8PathBuf>] rather than
         // [Option<&Utf8Path>]
-        let task = Server::serve(config_filepath).spawn_task().some();
+        let serve_task_opt = Server::serve(config_filepath).spawn_task().some();
 
         Self::SERVER_WARMUP_DURATION.sleep().await;
 
-        Self::socket().await?.pair(task).ok()
+        Self::socket().await?.pair(serve_task_opt).ok()
     }
 
     pub async fn connect(connect: Connect, config_filepath: Option<Utf8PathBuf>) -> Output<(), AnyhowError> {
@@ -49,7 +49,7 @@ impl Client {
         mkutils::loop_select! {
           crossterm_event_res_opt = crossterm_event_stream.next() => socket.send(crossterm_event_res_opt.check_next()??).await?,
           bytes_output = socket.recv::<Vec<u8>>() => screen.writer_mut().write_all_then(&bytes_output?)?.flush()?,
-          anyhow_res_res = serve_task_opt.unwrap_or_pending_then_wait() => anyhow_res_res??,
+          unit_res_res = serve_task_opt.unwrap_or_pending_then_wait() => unit_res_res??,
         }
     }
 }
