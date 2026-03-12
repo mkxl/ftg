@@ -61,7 +61,7 @@ impl Server {
     }
 
     async fn get_or_insert_buffer_from_filepath(&mut self, filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
-        self.buffer_map.get_or_insert_from_filepath(&filepath).await
+        self.buffer_map.get_or_insert_from_filepath(filepath).await
     }
 
     async fn new_window(&mut self, socket: Socket, connect: Connect) -> Result<Window, IoError> {

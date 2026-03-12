@@ -11,9 +11,12 @@ pub struct Region {
 impl Region {
     pub const ZERO: Self = Self::new(0, 0);
 
-    // pub fn is_reversed(&self) -> bool {
-    //     self.end < self.begin
-    // }
+    pub const fn translated(&self, count: isize) -> Self {
+        let begin = self.begin.saturating_add_signed(count);
+        let end = self.end.saturating_add_signed(count);
+
+        Self::new(begin, end)
+    }
 }
 
 impl From<usize> for Region {

@@ -1,4 +1,4 @@
-use crate::{buffer_map::BufferMap, config::Config, views::ViewStateSet};
+use crate::{buffer_map::BufferMap, config::Config, view_state_set::ViewStateSet};
 use anyhow::Error as AnyhowError;
 use mkutils::{ScrollView, Terminal, Utils};
 use ratatui::{Frame, layout::Rect, style::Stylize, widgets::Paragraph};
@@ -49,7 +49,7 @@ impl DrawState {
 
         if let Some(mut view) = view_state_set.active_view_mut(buffer_map)? {
             view.render(frame, area_set.buffer_content);
-            title.assign(view.title().to_owned().into_cow_owned())
+            title.assign(view.view_state().title().to_owned().into_cow_owned());
         } else {
             Self::empty_views().render_to(frame, area_set.buffer_content);
             title.assign(Self::EMPTY_VIEWS_TITLE.to_cow_borrowed());

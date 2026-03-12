@@ -13,4 +13,12 @@ impl SelectionSet {
     pub fn new(selection: Selection) -> Self {
         ActiveVec::new(selection).into()
     }
+
+    pub const fn active_vec(&self) -> &ActiveVec<Selection> {
+        &self.selections
+    }
+
+    pub const fn active_vec_mut(&mut self) -> &mut ActiveVec<Selection> {
+        &mut self.selections
+    }
 }

@@ -11,6 +11,12 @@ key_map:
     - keys: [ctrl+c]
       command:
         command: quit
+    - keys: [left]
+      command:
+        command: move_backward
+    - keys: [right]
+      command:
+        command: move_forward
     # - keys: ["up"]
     #   command: scroll_up
     # - keys: ["down"]

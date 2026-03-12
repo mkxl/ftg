@@ -1,6 +1,5 @@
 use camino::Utf8Path;
-use mkutils::{PointUsize, Rope, Utils};
-use ratatui::text::{Line as RatatuiLine, Span};
+use mkutils::{Rope, Utils};
 use std::io::Error as IoError;
 use ulid::Ulid;
 
@@ -35,23 +34,7 @@ impl Buffer {
         self.buffer_id
     }
 
-    pub fn size(&self) -> PointUsize {
-        self.rope.size()
-    }
-
-    pub fn raw_ratatui_lines(&self, scroll_offset: PointUsize, size: PointUsize) -> Vec<RatatuiLine<'_>> {
-        let line_offsets = scroll_offset.y.range_from_len(size.y);
-        let extended_grapheme_offsets = scroll_offset.x.range_from_len(size.x);
-        let mut rope_lines = self.rope.lines(line_offsets, extended_grapheme_offsets);
-        let mut raw_ratatui_lines = Vec::new();
-
-        while let Some(rope_line) = rope_lines.next_line() {
-            rope_line
-                .map(|atom| Span::raw(atom.extended_grapheme()))
-                .collect::<RatatuiLine>()
-                .push_to(&mut raw_ratatui_lines);
-        }
-
-        raw_ratatui_lines
+    pub const fn rope(&self) -> &Rope {
+        &self.rope
     }
 }

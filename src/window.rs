@@ -1,9 +1,6 @@
 use crate::{
-    buffer_map::BufferMap,
-    command::Command,
-    config::Config,
-    draw_state::DrawState,
-    views::{ViewState, ViewStateSet},
+    buffer_map::BufferMap, command::Command, config::Config, draw_state::DrawState, view::View, view_state::ViewState,
+    view_state_set::ViewStateSet,
 };
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
@@ -66,11 +63,25 @@ impl Window {
     async fn on_command(
         &mut self,
         _config: &Config,
-        _buffer_map: &BufferMap,
+        buffer_map: &BufferMap,
         command: Command,
     ) -> Output<(), AnyhowError> {
         match command {
             Command::Quit => Output::EndOk,
+            Command::MoveForward => self
+                .view_state_set
+                .active_view_mut(buffer_map)?
+                .as_mut()
+                .map(View::move_forward)
+                .unit()
+                .output_ok(),
+            Command::MoveBackward => self
+                .view_state_set
+                .active_view_mut(buffer_map)?
+                .as_mut()
+                .map(View::move_backward)
+                .unit()
+                .output_ok(),
         }
     }
 
