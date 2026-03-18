@@ -30,6 +30,10 @@ impl Selection {
             self.regions.insert_merge_touching_or_overlapping(translated_region);
         }
     }
+
+    pub fn regions(&self) -> impl DoubleEndedIterator<Item = &Region> {
+        self.regions.iter()
+    }
 }
 
 impl From<Region> for Selection {

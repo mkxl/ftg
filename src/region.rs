@@ -1,6 +1,7 @@
 use derive_more::Constructor;
 use mkutils::Utils;
 use nodit::{Interval, interval::InclusiveInterval};
+use std::ops::Range;
 
 #[derive(Clone, Constructor, Copy)]
 pub struct Region {
@@ -16,6 +17,14 @@ impl Region {
         let end = self.end.saturating_add_signed(count);
 
         Self::new(begin, end)
+    }
+
+    pub fn translate(&mut self, count: isize) {
+        self.translated(count).assign_to(self);
+    }
+
+    pub fn range(&self) -> Range<usize> {
+        self.start().copied()..self.end().copied()
     }
 }
 

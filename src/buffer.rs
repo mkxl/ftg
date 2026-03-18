@@ -24,7 +24,7 @@ impl Buffer {
             .open_async()
             .await?
             .buf_reader_async()
-            .rope_async()
+            .to_rope_async()
             .await?
             .pipe_into(Self::new)
             .ok()
@@ -36,5 +36,9 @@ impl Buffer {
 
     pub const fn rope(&self) -> &Rope {
         &self.rope
+    }
+
+    pub const fn rope_mut(&mut self) -> &mut Rope {
+        &mut self.rope
     }
 }

@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
-use crossterm::event::{Event as CrosstermEvent, KeyEvent, MouseEvent, MouseEventKind};
+use crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
 use derive_more::Constructor;
 use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Terminal, Utils};
 use std::io::Error as IoError;
@@ -63,7 +63,7 @@ impl Window {
     async fn on_command(
         &mut self,
         _config: &Config,
-        buffer_map: &BufferMap,
+        buffer_map: &mut BufferMap,
         command: Command,
     ) -> Output<(), AnyhowError> {
         match command {
@@ -85,8 +85,13 @@ impl Window {
         }
     }
 
-    fn on_input(&mut self, key_event: KeyEvent) -> Output<(), AnyhowError> {
-        tracing::info!(?key_event).output_ok()
+    fn on_input(&mut self, buffer_map: &mut BufferMap, key_event: KeyEvent) -> Output<(), AnyhowError> {
+        let Some(mut view) = self.view_state_set.active_view_mut(buffer_map)? else { return ().output_ok() };
+        let KeyCode::Char(character) = key_event.code else { return ().output_ok() };
+
+        view.replace(&character.to_string());
+
+        ().output_ok()
     }
 
     async fn on_key_event(
@@ -95,11 +100,13 @@ impl Window {
         buffer_map: &mut BufferMap,
         key_event: KeyEvent,
     ) -> Output<(), AnyhowError> {
+        tracing::info!(?key_event);
+
         // TODO: resolve [command.clone()]
         if let Some(command) = self.key_map_state.on_key_event(&config.key_map, key_event) {
             self.on_command(config, buffer_map, command.clone()).await
         } else {
-            self.on_input(key_event)
+            self.on_input(buffer_map, key_event)
         }
     }
 

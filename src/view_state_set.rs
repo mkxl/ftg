@@ -12,10 +12,10 @@ impl ViewStateSet {
         Self::default()
     }
 
-    pub fn active_view_mut<'a>(&'a mut self, buffer_map: &'a BufferMap) -> Result<Option<View<'a>>, AnyhowError> {
+    pub fn active_view_mut<'a>(&'a mut self, buffer_map: &'a mut BufferMap) -> Result<Option<View<'a>>, AnyhowError> {
         let Some(view_states) = &mut self.view_states else { return None.ok() };
         let view_state = view_states.active_mut();
-        let buffer = buffer_map.get(&view_state.buffer_id()).check_present()?;
+        let buffer = buffer_map.get_mut(&view_state.buffer_id()).check_present()?;
 
         // NOTE: see [latest-content-size-abb4a0]
         view_state

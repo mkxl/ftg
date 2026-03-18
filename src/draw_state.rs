@@ -38,7 +38,7 @@ impl DrawState {
     pub fn draw_impl<'a>(
         &self,
         config: &Config,
-        buffer_map: &'a BufferMap,
+        buffer_map: &'a mut BufferMap,
         view_state_set: &'a mut ViewStateSet,
         title: &mut Cow<'a, str>,
         frame: &mut Frame,
@@ -61,7 +61,7 @@ impl DrawState {
     pub fn draw(
         &self,
         config: &Config,
-        buffer_map: &BufferMap,
+        buffer_map: &mut BufferMap,
         view_state_set: &mut ViewStateSet,
         terminal: &mut Terminal,
     ) -> Result<Vec<u8>, AnyhowError> {

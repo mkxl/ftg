@@ -7,7 +7,7 @@ use std::ops::Range;
 #[derive(Constructor)]
 pub struct View<'a> {
     view_state: &'a mut ViewState,
-    buffer: &'a Buffer,
+    buffer: &'a mut Buffer,
 }
 
 impl View<'_> {
@@ -29,6 +29,17 @@ impl View<'_> {
             .active_vec_mut()
             .active_mut()
             .translate(-1);
+    }
+
+    pub fn replace(&mut self, text: &str) {
+        let rope = self.buffer.rope_mut();
+        let selection = self.view_state.selection_set_mut().active_vec_mut().active_mut();
+
+        for region in selection.regions().rev() {
+            rope.replace(region.range(), text);
+        }
+
+        selection.translate(text.extended_graphemes().count().cast_or_max());
     }
 }
 
