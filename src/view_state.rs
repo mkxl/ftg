@@ -1,4 +1,4 @@
-use crate::{region::Region, selection_set::SelectionSet};
+use crate::{region::Region, selection::Selection, selection_set::SelectionSet};
 use camino::Utf8PathBuf;
 use mkutils::{ScrollViewState, ScrollWhen, Utils};
 use ulid::Ulid;
@@ -34,6 +34,10 @@ impl ViewState {
         self.buffer_id
     }
 
+    pub const fn scroll_view_state(&self) -> &ScrollViewState {
+        &self.scroll_view_state
+    }
+
     pub const fn scroll_view_state_mut(&mut self) -> &mut ScrollViewState {
         &mut self.scroll_view_state
     }
@@ -52,5 +56,18 @@ impl ViewState {
         } else {
             Self::DEFAULT_TITLE
         }
+    }
+
+    pub fn set_active_selection(&mut self, new_active_selection: Selection) {
+        self.selection_set
+            .active_vec_mut()
+            .active_mut()
+            .assign(new_active_selection);
+    }
+}
+
+impl Default for ViewState {
+    fn default() -> Self {
+        Self::new(Ulid::default(), None)
     }
 }

@@ -7,7 +7,7 @@ readme = "README.md"
 repository = "https://github.com/mkxl/ftg.git"
 license = "Apache-2.0"
 keywords = ["text-editor"]
-categories = ["development-tools"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.100"
@@ -17,7 +17,7 @@ crossterm = { version = "0.29.0", features = ["event-stream", "libc", "serde", "
 derive_more = { version = "2.1.1", features = ["add", "constructor", "from", "mul"] }
 futures = "0.3.31"
 lits = "0.3.1"
-mkutils = { version = "0.1.102", features = ["async", "serde", "tracing", "tui", "unstable"] }
+mkutils = { version = "0.1.109", features = ["async", "serde", "tracing", "tui", "unstable"] }
 nodit = "0.10.0"
 num = "0.4.3"
 palette = { version = "0.7.6", features = ["serde"] }
@@ -29,8 +29,9 @@ tracing-subscriber = { version = "0.3.22", features = ["json", "valuable"] }
 ulid = { version = "1.2.1", features = ["serde"] }
 zed-sum-tree = "0.2.0"
 
-[workspace.lints.rust]
+[lints.rust]
 warnings = "deny"
+dead_code = { level = "allow", priority = 1 }  # TODO: remove
 
 [lints.clippy]
 all = "deny"
@@ -42,6 +43,9 @@ multiple_crate_versions = { level = "allow", priority = 1 }
 struct_field_names = { level = "allow", priority = 1 }
 unit_arg = { level = "allow", priority = 1 }
 option_if_let_else = { level = "allow", priority = 1 }
+unused_self = { level = "allow", priority = 1 }  # TODO: remove
+default_constructed_unit_structs = { level = "allow", priority = 1 }  # TODO: remove
+unused_async = { level = "allow", priority = 1 }  # TODO: remove
 
 [patch.crates-io]
 crossterm = { git = 'https://github.com/crossterm-rs/crossterm', rev = "4f08595" }

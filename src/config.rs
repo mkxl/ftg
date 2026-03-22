@@ -1,22 +1,30 @@
 use crate::command::Command;
 use mkutils::{KeyMap, Rgb};
+use ratatui::style::Style;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 pub struct ColorSpec {
     pub fg: Rgb,
     pub bg: Rgb,
 }
 
+impl From<ColorSpec> for Style {
+    fn from(color_spec: ColorSpec) -> Self {
+        Self::default().fg(color_spec.fg.into()).bg(color_spec.bg.into())
+    }
+}
+
 #[derive(Deserialize)]
 pub struct ColorScheme {
     pub main: ColorSpec,
+    pub status_bar: ColorSpec,
 }
 
 #[derive(Deserialize)]
 pub struct Theme {
-    pub buffer_border_lighten: f32,
-    pub buffer_title_lighten: f32,
+    pub gutter_lighten: f32,
+    pub gutter_padding: usize,
 }
 
 #[derive(Deserialize)]

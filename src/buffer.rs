@@ -15,7 +15,7 @@ impl Buffer {
         Self { buffer_id, rope }
     }
 
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self::new(Rope::new())
     }
 

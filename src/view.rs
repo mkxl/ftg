@@ -1,6 +1,6 @@
-use crate::{buffer::Buffer, view_state::ViewState};
+use crate::{buffer::Buffer, selection::Selection, view_state::ViewState};
 use derive_more::Constructor;
-use mkutils::{ScrollView, ScrollViewState, Utils};
+use mkutils::{PointUsize, Rope, ScrollView, ScrollViewState, Utils};
 use ratatui::{style::Modifier, text::Line as RatatuiLine};
 use std::ops::Range;
 
@@ -11,6 +11,10 @@ pub struct View<'a> {
 }
 
 impl View<'_> {
+    pub const fn buffer(&self) -> &Buffer {
+        self.buffer
+    }
+
     pub const fn view_state(&self) -> &ViewState {
         self.view_state
     }
@@ -31,15 +35,43 @@ impl View<'_> {
             .translate(-1);
     }
 
-    pub fn replace(&mut self, text: &str) {
-        let rope = self.buffer.rope_mut();
-        let selection = self.view_state.selection_set_mut().active_vec_mut().active_mut();
+    pub fn buffer_rope_and_active_selection(&mut self) -> (&mut Rope, &mut Selection) {
+        (
+            self.buffer.rope_mut(),
+            self.view_state.selection_set_mut().active_vec_mut().active_mut(),
+        )
+    }
 
-        for region in selection.regions().rev() {
-            rope.replace(region.range(), text);
+    pub fn replace(&mut self, text: &str) {
+        let (buffer_rope, active_selection) = self.buffer_rope_and_active_selection();
+
+        for region in active_selection.regions().rev() {
+            buffer_rope.replace(region.range(), text);
         }
 
-        selection.translate(text.extended_graphemes().count().cast_or_max());
+        active_selection.translate(text.extended_graphemes().count().cast_or_max());
+    }
+
+    pub fn delete(&mut self) {
+        let (buffer_rope, active_selection) = self.buffer_rope_and_active_selection();
+        let mut new_regions = Vec::new();
+
+        for region in active_selection.regions().rev() {
+            buffer_rope.delete(region.range());
+            new_regions.push(region.min().into());
+        }
+
+        if let Some(new_active_selection) = Selection::from_regions(new_regions) {
+            self.view_state.set_active_selection(new_active_selection);
+        }
+    }
+
+    pub fn size(&self) -> PointUsize {
+        self.buffer.rope().size()
+    }
+
+    pub fn line_num_width(&self) -> usize {
+        self.size().y.ilog10().incremented().cast_or_max()
     }
 }
 

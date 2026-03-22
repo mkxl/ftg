@@ -17,8 +17,25 @@ impl Selection {
         Self { regions }
     }
 
+    pub fn from_regions(regions: impl IntoIterator<Item = Region>) -> Option<Self> {
+        let mut regions = regions.into_iter();
+        let mut selection = Self::new(regions.next()?);
+
+        for region in regions {
+            selection.push(region);
+        }
+
+        selection.some()
+    }
+
     pub fn contains_point(&self, point: usize) -> bool {
         self.regions.contains_point(&point)
+    }
+
+    pub fn push(&mut self, region: Region) -> &mut Self {
+        self.regions.insert_merge_touching_or_overlapping(region);
+
+        self
     }
 
     pub fn translate(&mut self, count: isize) {
@@ -27,7 +44,7 @@ impl Selection {
         for region in original_regions {
             let translated_region = region.translated(count);
 
-            self.regions.insert_merge_touching_or_overlapping(translated_region);
+            self.push(translated_region);
         }
     }
 

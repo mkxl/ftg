@@ -12,6 +12,18 @@ pub struct Region {
 impl Region {
     pub const ZERO: Self = Self::new(0, 0);
 
+    pub const fn from_offset(offset: usize) -> Self {
+        Self::new(offset, offset)
+    }
+
+    pub fn min(&self) -> usize {
+        self.start().copied()
+    }
+
+    pub fn max(&self) -> usize {
+        self.end().copied()
+    }
+
     pub const fn translated(&self, count: isize) -> Self {
         let begin = self.begin.saturating_add_signed(count);
         let end = self.end.saturating_add_signed(count);
@@ -24,13 +36,13 @@ impl Region {
     }
 
     pub fn range(&self) -> Range<usize> {
-        self.start().copied()..self.end().copied()
+        self.start().copied()..self.end().incremented()
     }
 }
 
 impl From<usize> for Region {
     fn from(offset: usize) -> Self {
-        Self::new(offset, offset)
+        Self::from_offset(offset)
     }
 }
 

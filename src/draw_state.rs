@@ -1,41 +1,121 @@
-use crate::{buffer_map::BufferMap, config::Config, view_state_set::ViewStateSet};
+use crate::{
+    buffer::Buffer,
+    buffer_map::BufferMap,
+    config::{ColorSpec, Config},
+    view::View,
+    view_state::ViewState,
+    view_state_set::ViewStateSet,
+};
 use anyhow::Error as AnyhowError;
-use mkutils::{ScrollView, Terminal, Utils};
-use ratatui::{Frame, layout::Rect, style::Stylize, widgets::Paragraph};
+use mkutils::{Default as MkutilsDefault, ScrollView, Terminal, Utils};
+use ratatui::{
+    Frame,
+    layout::{Constraint, Layout, Rect},
+    style::{Styled, Stylize},
+    text::Text,
+    widgets::Paragraph,
+};
 use std::borrow::Cow;
 
 struct AreaSet {
     background: Rect,
-    buffer_content: Rect,
+    gutter: Rect,
+    buffer: Rect,
+    status_bar: Rect,
 }
 
-#[derive(Default)]
-pub struct DrawState;
+#[derive(MkutilsDefault)]
+pub struct DrawState {
+    #[default(Self::DEFAULT_SHOW_STATUS_BAR)]
+    show_status_bar: bool,
+
+    #[default(Self::DEFAULT_SHOW_GUTTER)]
+    show_gutter: bool,
+}
 
 impl DrawState {
     const EMPTY_VIEWS_TITLE: &str = "undefined";
+    const DEFAULT_SHOW_STATUS_BAR: bool = true;
+    const DEFAULT_SHOW_GUTTER: bool = true;
 
-    const fn area_set(&self, frame_area: Rect) -> AreaSet {
+    pub const fn show_status_bar_mut(&mut self) -> &mut bool {
+        &mut self.show_status_bar
+    }
+
+    pub const fn show_gutter_mut(&mut self) -> &mut bool {
+        &mut self.show_gutter
+    }
+
+    fn area_set(&self, config: &Config, view: &View, frame_area: Rect) -> AreaSet {
         let background = frame_area;
-        let buffer_content = frame_area;
+        let [buffer, status_bar] = self.buffer_and_status_bar(frame_area);
+        let [gutter, buffer] = self.gutter_and_buffer(config, view, buffer);
 
         AreaSet {
             background,
-            buffer_content,
+            gutter,
+            buffer,
+            status_bar,
         }
     }
 
+    fn buffer_and_status_bar(&self, frame_area: Rect) -> [Rect; 2] {
+        let constraints = [Constraint::Fill(1), Constraint::Length(self.show_status_bar.into())];
+        let layout = Layout::vertical(constraints);
+
+        layout.areas(frame_area)
+    }
+
+    fn gutter_line_str(line_num: usize, config: &Config, line_num_width: usize) -> String {
+        std::format!(
+            "{empty_string:>gutter_padding$}{line_num:>line_num_width$}{empty_string:>gutter_padding$}",
+            empty_string = "",
+            gutter_padding = config.theme.gutter_padding,
+        )
+    }
+
+    fn gutter_and_buffer(&self, config: &Config, view: &View, buffer: Rect) -> [Rect; 2] {
+        let gutter_width = if self.show_gutter {
+            Self::gutter_line_str(0, config, view.line_num_width())
+                .extended_graphemes()
+                .count()
+        } else {
+            0
+        };
+        let constraints = [Constraint::Length(gutter_width.cast_or_max()), Constraint::Fill(1)];
+        let layout = Layout::horizontal(constraints);
+
+        layout.areas(buffer)
+    }
+
+    fn paragraph(color_spec: ColorSpec) -> Paragraph<'static> {
+        Paragraph::default().set_style(color_spec)
+    }
+
     fn background(config: &Config) -> Paragraph<'static> {
-        Paragraph::default()
-            .fg(config.color_scheme.main.fg)
-            .bg(config.color_scheme.main.bg)
+        Self::paragraph(config.color_scheme.main)
     }
 
-    fn empty_views() -> Paragraph<'static> {
-        Paragraph::default()
+    fn status_bar(config: &Config) -> Paragraph<'static> {
+        Self::paragraph(config.color_scheme.status_bar)
     }
 
-    pub fn draw_impl<'a>(
+    fn gutter(config: &Config, view: &View) -> Paragraph<'static> {
+        let line_num_width = view.line_num_width();
+        let fg_color = config.color_scheme.main.bg.lighten_fixed(config.theme.gutter_lighten);
+
+        view.view_state()
+            .scroll_view_state()
+            .scroll_offset()
+            .y
+            .incremented()
+            .range_from_len(view.size().y)
+            .map(|line_num| Self::gutter_line_str(line_num, config, line_num_width).fg(fg_color))
+            .collect::<Text>()
+            .pipe_into(Paragraph::new)
+    }
+
+    fn draw_impl<'a>(
         &self,
         config: &Config,
         buffer_map: &'a mut BufferMap,
@@ -43,17 +123,20 @@ impl DrawState {
         title: &mut Cow<'a, str>,
         frame: &mut Frame,
     ) -> Result<(), AnyhowError> {
-        let area_set = self.area_set(frame.area());
+        let mut default_view_state = ViewState::default();
+        let mut default_buffer = Buffer::empty();
+        let mut view = if let Some(view) = view_state_set.active_view_mut(buffer_map)? {
+            view
+        } else {
+            View::new(&mut default_view_state, &mut default_buffer)
+        };
+        let area_set = self.area_set(config, &view, frame.area());
 
         Self::background(config).render_to(frame, area_set.background);
-
-        if let Some(mut view) = view_state_set.active_view_mut(buffer_map)? {
-            view.render(frame, area_set.buffer_content);
-            title.assign(view.view_state().title().to_owned().into_cow_owned());
-        } else {
-            Self::empty_views().render_to(frame, area_set.buffer_content);
-            title.assign(Self::EMPTY_VIEWS_TITLE.to_cow_borrowed());
-        }
+        Self::status_bar(config).render_to(frame, area_set.status_bar);
+        Self::gutter(config, &view).render_to(frame, area_set.gutter);
+        view.render(frame, area_set.buffer);
+        title.assign(view.view_state().title().to_owned().into_cow_owned());
 
         ().ok()
     }

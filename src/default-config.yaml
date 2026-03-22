@@ -2,13 +2,16 @@ color_scheme:
     main:
         fg: "#B7B9BC"
         bg: "#1A1D23"
+    status_bar:
+        fg: "#2A2A2A"
+        bg: "#505050"
 
 theme:
-    buffer_border_lighten: 0.10
-    buffer_title_lighten: 0.40
+    gutter_lighten: 0.25
+    gutter_padding: 3
 
 key_map:
-    - keys: [ctrl+c]
+    - keys: [ctrl+q]
       command:
         command: quit
     - keys: [left]
@@ -17,6 +20,15 @@ key_map:
     - keys: [right]
       command:
         command: move_forward
+    - keys: [backspace]
+      command:
+        command: delete
+    - keys: [alt+s]
+      command:
+        command: toggle_status_bar
+    - keys: [alt+g]
+      command:
+        command: toggle_gutter
     # - keys: ["up"]
     #   command: scroll_up
     # - keys: ["down"]

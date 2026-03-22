@@ -6,4 +6,7 @@ pub enum Command {
     Quit,
     MoveForward,
     MoveBackward,
+    Delete,
+    ToggleStatusBar,
+    ToggleGutter,
 }

@@ -25,13 +25,13 @@
             file = ./rust-toolchain.toml;
             sha256 = "sha256-K8/aNzEwNFy5A+HIFCFhHbilHJezC3HqOc9YItLeZ7c=";
           };
-          craneLib = (crane.mkLib pkgs).overrideToolchain (pkgs: rust-toolchain);
+          crane-lib = (crane.mkLib pkgs).overrideToolchain (pkgs: rust-toolchain);
         in
         {
-          packages.default = craneLib.buildPackage {
-            src = craneLib.cleanCargoSource ./.;
+          packages.default = crane-lib.buildPackage {
+            src = crane-lib.cleanCargoSource ./.;
           };
-          devShells.default = craneLib.devShell {
+          devShells.default = crane-lib.devShell {
             nativeBuildInputs = [
               pkgs.tokio-console
             ];

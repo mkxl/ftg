@@ -82,6 +82,15 @@ impl Window {
                 .map(View::move_backward)
                 .unit()
                 .output_ok(),
+            Command::Delete => self
+                .view_state_set
+                .active_view_mut(buffer_map)?
+                .as_mut()
+                .map(View::delete)
+                .unit()
+                .output_ok(),
+            Command::ToggleStatusBar => self.draw_state.show_status_bar_mut().toggle().output_ok(),
+            Command::ToggleGutter => self.draw_state.show_gutter_mut().toggle().output_ok(),
         }
     }
 
