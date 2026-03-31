@@ -10,6 +10,18 @@ use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Termina
 use std::io::Error as IoError;
 use ulid::Ulid;
 
+macro_rules! execute {
+    ($self:expr, $buffer_map:expr, $method:ident) => {
+        $self
+            .view_state_set
+            .active_view_mut($buffer_map)?
+            .as_mut()
+            .map(View::$method)
+            .unit()
+            .output_ok()
+    };
+}
+
 #[derive(Constructor)]
 pub struct WindowCrosstermEvent {
     pub window_id: Ulid,
@@ -68,27 +80,11 @@ impl Window {
     ) -> Output<(), AnyhowError> {
         match command {
             Command::Quit => Output::EndOk,
-            Command::MoveForward => self
-                .view_state_set
-                .active_view_mut(buffer_map)?
-                .as_mut()
-                .map(View::move_forward)
-                .unit()
-                .output_ok(),
-            Command::MoveBackward => self
-                .view_state_set
-                .active_view_mut(buffer_map)?
-                .as_mut()
-                .map(View::move_backward)
-                .unit()
-                .output_ok(),
-            Command::Delete => self
-                .view_state_set
-                .active_view_mut(buffer_map)?
-                .as_mut()
-                .map(View::delete)
-                .unit()
-                .output_ok(),
+            Command::MoveForward => execute!(self, buffer_map, move_forward),
+            Command::MoveBackward => execute!(self, buffer_map, move_backward),
+            Command::MoveUp => execute!(self, buffer_map, move_up),
+            Command::MoveDown => execute!(self, buffer_map, move_down),
+            Command::Delete => execute!(self, buffer_map, delete),
             Command::ToggleStatusBar => self.draw_state.show_status_bar_mut().toggle().output_ok(),
             Command::ToggleGutter => self.draw_state.show_gutter_mut().toggle().output_ok(),
         }

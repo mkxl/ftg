@@ -27,6 +27,14 @@ impl View<'_> {
         self.view_state.selections_mut().active_mut().translate(-1);
     }
 
+    pub fn move_up(&mut self) {
+        std::todo!();
+    }
+
+    pub fn move_down(&mut self) {
+        std::todo!();
+    }
+
     pub fn buffer_rope_and_active_selection(&mut self) -> (&mut Rope, &mut Selection) {
         (self.buffer.rope_mut(), self.view_state.selections_mut().active_mut())
     }
