@@ -7,7 +7,6 @@ mod config;
 mod draw_state;
 mod region;
 mod selection;
-mod selection_set;
 mod server;
 mod view;
 mod view_state;

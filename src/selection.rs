@@ -1,18 +1,17 @@
 use crate::region::Region;
-use mkutils::Utils;
-use nodit::NoditSet;
+use mkutils::{IntervalSet, Utils};
 
 // NOTE: there is no direct [From<...>] implementation because we want to
 // enforce that selections are non-empty
 pub struct Selection {
-    regions: NoditSet<usize, Region>,
+    regions: IntervalSet<Region>,
 }
 
 impl Selection {
     fn new(region: Region) -> Self {
-        let mut regions = NoditSet::new();
+        let mut regions = IntervalSet::new();
 
-        regions.insert_merge_touching_or_overlapping(region);
+        regions.insert(region);
 
         Self { regions }
     }
@@ -22,29 +21,27 @@ impl Selection {
         let mut selection = Self::new(regions.next()?);
 
         for region in regions {
-            selection.push(region);
+            selection.insert(region);
         }
 
         selection.some()
     }
 
     pub fn contains_point(&self, point: usize) -> bool {
-        self.regions.contains_point(&point)
+        self.regions.is_touching_or_contains(&point)
     }
 
-    pub fn push(&mut self, region: Region) -> &mut Self {
-        self.regions.insert_merge_touching_or_overlapping(region);
+    pub fn insert(&mut self, region: Region) -> &mut Self {
+        self.regions.insert(region);
 
         self
     }
 
     pub fn translate(&mut self, count: isize) {
-        let original_regions = self.regions.mem_take();
-
-        for region in original_regions {
+        for region in self.regions.mem_take() {
             let translated_region = region.translated(count);
 
-            self.push(translated_region);
+            self.insert(translated_region);
         }
     }
 

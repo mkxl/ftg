@@ -1,42 +1,46 @@
 use derive_more::Constructor;
-use mkutils::Utils;
-use nodit::{Interval, interval::InclusiveInterval};
+use mkutils::{Interval, Utils};
 use std::ops::Range;
 
-#[derive(Clone, Constructor, Copy)]
+#[derive(Constructor)]
 pub struct Region {
     begin: usize,
-    end: usize,
+    len: usize,
+    is_forward: bool,
 }
 
 impl Region {
-    pub const ZERO: Self = Self::new(0, 0);
+    pub const ZERO: Self = Self::from_offset(0);
 
-    pub const fn from_offset(offset: usize) -> Self {
-        Self::new(offset, offset)
-    }
+    const INITIAL_LEN: usize = 0;
+    const INITIAL_IS_FORWARD: bool = true;
 
-    pub fn min(&self) -> usize {
-        self.start().copied()
-    }
-
-    pub fn max(&self) -> usize {
-        self.end().copied()
+    pub const fn from_offset(begin: usize) -> Self {
+        Self::new(begin, Self::INITIAL_LEN, Self::INITIAL_IS_FORWARD)
     }
 
     pub const fn translated(&self, count: isize) -> Self {
         let begin = self.begin.saturating_add_signed(count);
-        let end = self.end.saturating_add_signed(count);
 
-        Self::new(begin, end)
+        Self::new(begin, self.len, self.is_forward)
     }
 
     pub fn translate(&mut self, count: isize) {
         self.translated(count).assign_to(self);
     }
 
+    pub const fn expanded(&self, count: isize) -> Self {
+        let len = self.len.saturating_add_signed(count);
+
+        Self::new(self.begin, len, self.is_forward)
+    }
+
+    pub fn expand(&mut self, count: isize) {
+        self.expanded(count).assign_to(self);
+    }
+
     pub fn range(&self) -> Range<usize> {
-        self.start().copied()..self.end().incremented()
+        self.begin.range_from_len(self.len)
     }
 }
 
@@ -46,18 +50,23 @@ impl From<usize> for Region {
     }
 }
 
-impl From<Interval<usize>> for Region {
-    fn from(interval: Interval<usize>) -> Self {
-        Self::new(*interval.start(), *interval.end())
-    }
-}
+impl Interval for Region {
+    type Point = usize;
 
-impl InclusiveInterval<usize> for Region {
-    fn start(&self) -> &usize {
-        self.begin.ref_immut().min(&self.end)
+    fn begin(&self) -> Self::Point {
+        self.begin
     }
 
-    fn end(&self) -> &usize {
-        self.begin.ref_immut().max(&self.end)
+    fn len(&self) -> Self::Point {
+        self.len
+    }
+
+    fn expand_to_cover(&mut self, other: &Self) {
+        let new_begin = self.begin().min(other.begin());
+        let new_end = self.end().max(other.end());
+        let new_len = new_end.saturating_sub(new_begin);
+
+        self.begin = new_begin;
+        self.len = new_len;
     }
 }

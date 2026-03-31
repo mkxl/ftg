@@ -1,12 +1,12 @@
-use crate::{region::Region, selection::Selection, selection_set::SelectionSet};
+use crate::{region::Region, selection::Selection};
 use camino::Utf8PathBuf;
-use mkutils::{ScrollViewState, ScrollWhen, Utils};
+use mkutils::{ActiveVec, ScrollViewState, ScrollWhen, Utils};
 use ulid::Ulid;
 
 pub struct ViewState {
     buffer_id: Ulid,
     filepath: Option<Utf8PathBuf>,
-    selection_set: SelectionSet,
+    selections: ActiveVec<Selection>,
     scroll_view_state: ScrollViewState,
 }
 
@@ -15,19 +15,19 @@ impl ViewState {
     const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
 
     pub fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
-        let selection_set = Self::initial_selection_set();
+        let selections = Self::initial_selections();
         let scroll_view_state = ScrollViewState::new(Self::SCROLL_WHEN);
 
         Self {
             buffer_id,
             filepath,
-            selection_set,
+            selections,
             scroll_view_state,
         }
     }
 
-    fn initial_selection_set() -> SelectionSet {
-        Region::ZERO.into()
+    fn initial_selections() -> ActiveVec<Selection> {
+        ActiveVec::new(Region::ZERO.into())
     }
 
     pub const fn buffer_id(&self) -> Ulid {
@@ -42,12 +42,12 @@ impl ViewState {
         &mut self.scroll_view_state
     }
 
-    pub const fn selection_set(&self) -> &SelectionSet {
-        &self.selection_set
+    pub const fn selections(&self) -> &ActiveVec<Selection> {
+        &self.selections
     }
 
-    pub const fn selection_set_mut(&mut self) -> &mut SelectionSet {
-        &mut self.selection_set
+    pub const fn selections_mut(&mut self) -> &mut ActiveVec<Selection> {
+        &mut self.selections
     }
 
     pub fn title(&self) -> &str {
@@ -59,10 +59,7 @@ impl ViewState {
     }
 
     pub fn set_active_selection(&mut self, new_active_selection: Selection) {
-        self.selection_set
-            .active_vec_mut()
-            .active_mut()
-            .assign(new_active_selection);
+        self.selections.active_mut().assign(new_active_selection);
     }
 }
 

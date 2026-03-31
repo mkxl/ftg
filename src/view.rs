@@ -1,6 +1,6 @@
 use crate::{buffer::Buffer, selection::Selection, view_state::ViewState};
 use derive_more::Constructor;
-use mkutils::{PointUsize, Rope, ScrollView, ScrollViewState, Utils};
+use mkutils::{Interval, Rope, ScrollView, ScrollViewState, Utils};
 use ratatui::{style::Modifier, text::Line as RatatuiLine};
 use std::ops::Range;
 
@@ -20,26 +20,15 @@ impl View<'_> {
     }
 
     pub fn move_forward(&mut self) {
-        self.view_state
-            .selection_set_mut()
-            .active_vec_mut()
-            .active_mut()
-            .translate(1);
+        self.view_state.selections_mut().active_mut().translate(1);
     }
 
     pub fn move_backward(&mut self) {
-        self.view_state
-            .selection_set_mut()
-            .active_vec_mut()
-            .active_mut()
-            .translate(-1);
+        self.view_state.selections_mut().active_mut().translate(-1);
     }
 
     pub fn buffer_rope_and_active_selection(&mut self) -> (&mut Rope, &mut Selection) {
-        (
-            self.buffer.rope_mut(),
-            self.view_state.selection_set_mut().active_vec_mut().active_mut(),
-        )
+        (self.buffer.rope_mut(), self.view_state.selections_mut().active_mut())
     }
 
     pub fn replace(&mut self, text: &str) {
@@ -57,8 +46,14 @@ impl View<'_> {
         let mut new_regions = Vec::new();
 
         for region in active_selection.regions().rev() {
-            buffer_rope.delete(region.range());
-            new_regions.push(region.min().into());
+            let delete_range = if region.is_empty() && !region.begins_at(&0) {
+                region.translated(-1).expanded(1).range()
+            } else {
+                region.range()
+            };
+
+            buffer_rope.delete(delete_range);
+            new_regions.push(region.begin().decremented().into());
         }
 
         if let Some(new_active_selection) = Selection::from_regions(new_regions) {
@@ -66,19 +61,16 @@ impl View<'_> {
         }
     }
 
-    pub fn size(&self) -> PointUsize {
-        self.buffer.rope().size()
-    }
-
     pub fn line_num_width(&self) -> usize {
-        self.size().y.ilog10().incremented().cast_or_max()
+        self.buffer.rope().size().y.ilog10().incremented().cast_or_max()
     }
 }
 
 impl ScrollView for View<'_> {
     fn ratatui_lines(&self, rows: Range<usize>, cols: Range<usize>) -> Vec<RatatuiLine<'_>> {
         let mut rope_lines = self.buffer.rope().lines(rows, cols);
-        let mut raw_ratatui_lines = Vec::new();
+        let mut ratatui_lines = Vec::new();
+        let active_selection = self.view_state.selections().active();
 
         while let Some(rope_line) = rope_lines.next_line() {
             rope_line
@@ -86,19 +78,16 @@ impl ScrollView for View<'_> {
                     let extended_grapheme = atom.extended_grapheme();
                     let extended_grapheme = extended_grapheme.is_newline().if_else(" ", extended_grapheme);
 
-                    self.view_state
-                        .selection_set()
-                        .active_vec()
-                        .active()
+                    active_selection
                         .contains_point(atom.offset().extended_graphemes().get())
                         .if_else(Modifier::REVERSED, Modifier::empty())
                         .stylize(extended_grapheme)
                 })
                 .collect::<RatatuiLine>()
-                .push_to(&mut raw_ratatui_lines);
+                .push_to(&mut ratatui_lines);
         }
 
-        raw_ratatui_lines
+        ratatui_lines
     }
 
     fn scroll_view_state_mut(&mut self) -> &mut ScrollViewState {
