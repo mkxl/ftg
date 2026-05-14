@@ -1,6 +1,7 @@
 use crate::{buffer::Buffer, selection::Selection, view_state::ViewState};
 use derive_more::Constructor;
 use mkutils::{Interval, Rope, ScrollView, ScrollViewState, Utils};
+use num::traits::{ConstOne, ConstZero};
 use ratatui::{style::Modifier, text::Line as RatatuiLine};
 use std::ops::Range;
 
@@ -20,11 +21,11 @@ impl View<'_> {
     }
 
     pub fn move_forward(&mut self) {
-        self.view_state.selections_mut().active_mut().translate(1);
+        self.view_state.selections_mut().active_mut().translate(isize::ONE);
     }
 
     pub fn move_backward(&mut self) {
-        self.view_state.selections_mut().active_mut().translate(-1);
+        self.view_state.selections_mut().active_mut().translate(-isize::ONE);
     }
 
     pub fn move_up(&mut self) {
@@ -54,8 +55,8 @@ impl View<'_> {
         let mut new_regions = Vec::new();
 
         for region in active_selection.regions().rev() {
-            let delete_range = if region.is_empty() && !region.begins_at(&0) {
-                region.translated(-1).expanded(1).range()
+            let delete_range = if region.is_empty() && !region.begins_at(&usize::ZERO) {
+                region.translated(-isize::ONE).expanded(isize::ONE).range()
             } else {
                 region.range()
             };

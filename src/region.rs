@@ -1,5 +1,6 @@
 use derive_more::Constructor;
 use mkutils::{Interval, Utils};
+use num::traits::ConstZero;
 use std::ops::Range;
 
 #[derive(Constructor)]
@@ -10,9 +11,9 @@ pub struct Region {
 }
 
 impl Region {
-    pub const ZERO: Self = Self::from_offset(0);
+    pub const ZERO: Self = Self::from_offset(usize::ZERO);
 
-    const INITIAL_LEN: usize = 0;
+    const INITIAL_LEN: usize = usize::ZERO;
     const INITIAL_IS_FORWARD: bool = true;
 
     pub const fn from_offset(begin: usize) -> Self {

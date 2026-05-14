@@ -8,6 +8,7 @@ use crate::{
 };
 use anyhow::Error as AnyhowError;
 use mkutils::{Default as MkutilsDefault, ScrollView, Terminal, Utils};
+use num::traits::{ConstOne, ConstZero};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -60,7 +61,10 @@ impl DrawState {
     }
 
     fn buffer_and_status_bar(&self, frame_area: Rect) -> [Rect; 2] {
-        let constraints = [Constraint::Fill(1), Constraint::Length(self.show_status_bar.into())];
+        let constraints = [
+            Constraint::Fill(u16::ONE),
+            Constraint::Length(self.show_status_bar.into()),
+        ];
         let layout = Layout::vertical(constraints);
 
         layout.areas(frame_area)
@@ -76,13 +80,16 @@ impl DrawState {
 
     fn gutter_and_buffer(&self, config: &Config, view: &View, buffer: Rect) -> [Rect; 2] {
         let gutter_width = if self.show_gutter {
-            Self::gutter_line_str(0, config, view.line_num_width())
+            Self::gutter_line_str(usize::ZERO, config, view.line_num_width())
                 .extended_graphemes()
                 .count()
         } else {
-            0
+            usize::ZERO
         };
-        let constraints = [Constraint::Length(gutter_width.cast_or_max()), Constraint::Fill(1)];
+        let constraints = [
+            Constraint::Length(gutter_width.cast_or_max()),
+            Constraint::Fill(u16::ONE),
+        ];
         let layout = Layout::horizontal(constraints);
 
         layout.areas(buffer)
