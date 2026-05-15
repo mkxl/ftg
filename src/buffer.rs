@@ -16,7 +16,7 @@ impl Buffer {
     }
 
     pub fn empty() -> Self {
-        Self::new(Rope::new())
+        Self::new(Rope::empty())
     }
 
     pub async fn from_filepath(filepath: &Utf8Path) -> Result<Self, IoError> {

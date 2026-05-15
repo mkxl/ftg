@@ -39,7 +39,8 @@ impl WindowMap {
     }
 
     pub async fn on_tick(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
-        // NOTE: [StreamExt::then()] doesn't work here: [https://chatgpt.com/c/697fe763-fcb8-832f-ae90-59309bf933b0]
+        // NOTE-ff2f17: [StreamExt::then()] doesn't work here:
+        // [https://chatgpt.com/c/697fe763-fcb8-832f-ae90-59309bf933b0]
         let mut window_outputs = Vec::new();
 
         for window in self.window_map.values_mut() {

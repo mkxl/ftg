@@ -9,7 +9,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
 use mkutils::{Output, PointU16, Screen, Socket, Utils};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, io::Error as IoError, ops::ControlFlow, path::Path, time::Duration};
+use std::{fmt::Debug, io::Error as IoError, path::Path, time::Duration};
 use tokio::net::{UnixListener, UnixStream, unix::SocketAddr};
 use ulid::Ulid;
 
@@ -89,11 +89,13 @@ impl Server {
     }
 
     fn close_window(&mut self, window_id: &Ulid, anyhow_res: Result<(), AnyhowError>) {
-        let status = anyhow_res.into_status();
-
         self.window_map.remove(window_id);
 
-        mkutils::trace!(level = status.level(), %status, "terminated client");
+        mkutils::trace!(
+            level = anyhow_res.level(),
+            status = %anyhow_res.status_display(),
+            "terminated client"
+        );
     }
 
     async fn on_window_crossterm_event(
@@ -113,7 +115,7 @@ impl Server {
             Output::EndOk => Output::EndOk,
             Output::EndErr(anyhow_error) => Output::EndErr(anyhow_error),
         };
-        let ControlFlow::Break(anyhow_res) = anyhow_output.into_control_flow() else { return ().ok() };
+        let Some(anyhow_res) = anyhow_output.into_end() else { return ().ok() };
 
         self.close_window(&window_crossterm_event.window_id, anyhow_res);
 

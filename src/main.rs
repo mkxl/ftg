@@ -22,7 +22,7 @@ use clap::Parser;
 #[allow(clippy::cast_possible_truncation)]
 const THREAD_STACK_SIZE: usize = lits::bytes!("8 MiB") as usize;
 
-#[mkutils::main(thread_stack_size = THREAD_STACK_SIZE)]
+#[mkutils::tokio_main(thread_stack_size = THREAD_STACK_SIZE)]
 async fn main() -> Result<(), AnyhowError> {
     CliArgs::parse().run().await
 }

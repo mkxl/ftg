@@ -1359,9 +1359,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils"
-version = "0.1.118"
+version = "0.1.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76d2f9ba4b0ec6d52eac67491ff700234099ac11f67e3b08ebc40905821490e1"
+checksum = "fcaa2b8a5e0509b9c3c13a2a3a42ae95e77c1b27b43d673b7db8a2fa9e1bf02a"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -1376,6 +1376,7 @@ dependencies = [
  "mkutils-macros",
  "num",
  "palette",
+ "paste",
  "ratatui",
  "rmp-serde",
  "serde",
@@ -1397,9 +1398,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils-macros"
-version = "0.1.117"
+version = "0.1.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8372cb6080fac0b5ffd0a1f575b967e2a4153286c39c2128b387b67203af60c"
+checksum = "3c70c87402b3b4645a3a60e0081865ff4ec3fa810cbee84684f421aeb372699f"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1618,6 +1619,12 @@ dependencies = [
  "smallvec",
  "windows-link",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percent-encoding"

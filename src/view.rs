@@ -2,8 +2,7 @@ use crate::{buffer::Buffer, selection::Selection, view_state::ViewState};
 use derive_more::Constructor;
 use mkutils::{Interval, Rope, ScrollView, ScrollViewState, Utils};
 use num::traits::{ConstOne, ConstZero};
-use ratatui::{style::Modifier, text::Line as RatatuiLine};
-use std::ops::Range;
+use ratatui::{Frame, layout::Rect, style::Modifier, text::Line as RatatuiLine};
 
 #[derive(Constructor)]
 pub struct View<'a> {
@@ -76,27 +75,33 @@ impl View<'_> {
 }
 
 impl ScrollView for View<'_> {
-    fn ratatui_lines(&self, rows: Range<usize>, cols: Range<usize>) -> Vec<RatatuiLine<'_>> {
+    fn render_content(&self, frame: &mut Frame, content_area: Rect) {
+        let scroll_offset = self.scroll_view_state().scroll_offset();
+        let rows = scroll_offset.y.range_from_len(content_area.height.into());
+        let cols = scroll_offset.x.range_from_len(content_area.width.into());
         let mut rope_lines = self.buffer.rope().lines(rows, cols);
-        let mut ratatui_lines = Vec::new();
+        let mut row_areas = content_area.rows();
         let active_selection = self.view_state.selections().active();
 
         while let Some(rope_line) = rope_lines.next_line() {
+            let Some(row_area) = row_areas.next() else { break };
+
             rope_line
                 .map(|atom| {
-                    let extended_grapheme = atom.extended_grapheme();
-                    let extended_grapheme = extended_grapheme.is_newline().if_else(" ", extended_grapheme);
+                    let extended_grapheme = atom.extended_grapheme.is_newline().if_else(" ", atom.extended_grapheme);
 
                     active_selection
-                        .contains_point(atom.offset().extended_graphemes().get())
+                        .contains_point(atom.offset.length.extended_graphemes)
                         .if_else(Modifier::REVERSED, Modifier::empty())
                         .stylize(extended_grapheme)
                 })
                 .collect::<RatatuiLine>()
-                .push_to(&mut ratatui_lines);
+                .render_to(frame, row_area);
         }
+    }
 
-        ratatui_lines
+    fn scroll_view_state(&self) -> &ScrollViewState {
+        self.view_state.scroll_view_state()
     }
 
     fn scroll_view_state_mut(&mut self) -> &mut ScrollViewState {
