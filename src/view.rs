@@ -31,8 +31,10 @@ impl View<'_> {
     fn move_with(&mut self, point_offset: PointIsize) {
         let translated = |region: &Region| {
             let offset = self.buffer.rope().translated(region.begin(), &point_offset);
+            let count = offset.text_summary.length.extended_graphemes.cast_or_max::<isize>();
+            let count = offset.is_forward.if_else(count, count.neg());
 
-            region.translated(offset.length.extended_graphemes.cast_or_max())
+            region.translated(count)
         };
         let new_regions = self.view_state.selections().active().regions().map(translated);
 
