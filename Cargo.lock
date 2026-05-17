@@ -1359,9 +1359,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils"
-version = "0.1.138"
+version = "0.1.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3effb29fe627a6b6026b39aa272225a033b6cf8d08b20ed6a2f40d037159f91e"
+checksum = "57027378cb6bfdc7e7616083f3edb5ab1c993ad52208fa3556fe0b836029d292"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -1398,9 +1398,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils-macros"
-version = "0.1.138"
+version = "0.1.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2da1281608378ee4b02a409035e88ec7a93ae2b857a26b65f1c6a16875a72cdb"
+checksum = "17632829dcc8e4678881c31b6a3f9a1346e609d9a8dcc93da3667257543dc44a"
 dependencies = [
  "heck",
  "proc-macro2",

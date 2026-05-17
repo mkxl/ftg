@@ -1,8 +1,9 @@
-use crate::{buffer::Buffer, selection::Selection, view_state::ViewState};
+use crate::{buffer::Buffer, region::Region, selection::Selection, view_state::ViewState};
 use derive_more::Constructor;
-use mkutils::{Interval, Rope, ScrollView, ScrollViewState, Utils};
+use mkutils::{Interval, PointIsize, Rope, ScrollView, ScrollViewState, Utils};
 use num::traits::{ConstOne, ConstZero};
 use ratatui::{Frame, layout::Rect, style::Modifier, text::Line as RatatuiLine};
+use std::ops::Neg;
 
 #[derive(Constructor)]
 pub struct View<'a> {
@@ -27,12 +28,25 @@ impl View<'_> {
         self.view_state.selections_mut().active_mut().translate(-isize::ONE);
     }
 
+    fn move_with(&mut self, point_offset: PointIsize) {
+        let translated = |region: &Region| {
+            let offset = self.buffer.rope().translated(region.begin(), &point_offset);
+
+            region.translated(offset.length.extended_graphemes.cast_or_max())
+        };
+        let new_regions = self.view_state.selections().active().regions().map(translated);
+
+        if let Some(new_active_selection) = Selection::from_regions(new_regions) {
+            self.view_state.set_active_selection(new_active_selection);
+        }
+    }
+
     pub fn move_up(&mut self) {
-        std::todo!();
+        self.move_with(isize::ONE.neg().into_point_y());
     }
 
     pub fn move_down(&mut self) {
-        std::todo!();
+        self.move_with(isize::ONE.into_point_y());
     }
 
     pub fn buffer_rope_and_active_selection(&mut self) -> (&mut Rope, &mut Selection) {

@@ -20,6 +20,12 @@ key_map:
     - keys: [right]
       command:
         command: move_forward
+    - keys: [up]
+      command:
+        command: move_up
+    - keys: [down]
+      command:
+        command: move_down
     - keys: [backspace]
       command:
         command: delete
