@@ -30,11 +30,31 @@ impl View<'_> {
 
     fn move_with(&mut self, point_offset: PointIsize) {
         let translated = |region: &Region| {
+            let begin_index = region.begin();
+            let begin_point = self.buffer.rope().point_from_index(begin_index);
             let offset = self.buffer.rope().translated(region.begin(), &point_offset);
             let count = offset.text_summary.length.extended_graphemes.cast_or_max::<isize>();
             let count = offset.is_forward.if_else(count, count.neg());
+            let new_region = region.translated(count);
+            let end_point = self.buffer.rope().point_from_index(new_region.begin());
 
-            region.translated(count)
+            tracing::info!(
+                target: "ftg::cursor",
+                event = "move_with",
+                begin_index,
+                begin_x = begin_point.x,
+                begin_y = begin_point.y,
+                point_offset_x = point_offset.x,
+                point_offset_y = point_offset.y,
+                translation_is_forward = offset.is_forward,
+                translation_count = offset.text_summary.length.extended_graphemes,
+                signed_count = count,
+                end_index = new_region.begin(),
+                end_x = end_point.x,
+                end_y = end_point.y,
+            );
+
+            new_region
         };
         let new_regions = self.view_state.selections().active().regions().map(translated);
 
@@ -57,12 +77,40 @@ impl View<'_> {
 
     pub fn replace(&mut self, text: &str) {
         let (buffer_rope, active_selection) = self.buffer_rope_and_active_selection();
+        let text_len = text.extended_graphemes().count();
 
         for region in active_selection.regions().rev() {
+            let begin_index = region.begin();
+            let begin_point = buffer_rope.point_from_index(begin_index);
+
+            tracing::info!(
+                target: "ftg::cursor",
+                event = "replace_before",
+                begin_index,
+                begin_x = begin_point.x,
+                begin_y = begin_point.y,
+                region_len = region.len(),
+                text,
+                text_len,
+            );
+
             buffer_rope.replace(region.range(), text);
         }
 
-        active_selection.translate(text.extended_graphemes().count().cast_or_max());
+        active_selection.translate(text_len.cast_or_max());
+
+        for region in active_selection.regions() {
+            let begin_index = region.begin();
+            let begin_point = buffer_rope.point_from_index(begin_index);
+
+            tracing::info!(
+                target: "ftg::cursor",
+                event = "replace_after",
+                begin_index,
+                begin_x = begin_point.x,
+                begin_y = begin_point.y,
+            );
+        }
     }
 
     pub fn delete(&mut self) {
