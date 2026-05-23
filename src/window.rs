@@ -11,10 +11,10 @@ use std::io::Error as IoError;
 use ulid::Ulid;
 
 macro_rules! execute {
-    ($self:expr, $buffer_map:expr, $method:ident) => {
+    ($self:expr, $buffer_map:expr, $config:expr, $method:ident) => {
         $self
             .view_state_set
-            .active_view_mut($buffer_map)?
+            .active_view_mut($buffer_map, $config)?
             .as_mut()
             .map(View::$method)
             .unit()
@@ -74,24 +74,29 @@ impl Window {
 
     async fn on_command(
         &mut self,
-        _config: &Config,
+        config: &Config,
         buffer_map: &mut BufferMap,
         command: Command,
     ) -> Output<(), AnyhowError> {
         match command {
             Command::Quit => Output::EndOk,
-            Command::MoveForward => execute!(self, buffer_map, move_forward),
-            Command::MoveBackward => execute!(self, buffer_map, move_backward),
-            Command::MoveUp => execute!(self, buffer_map, move_up),
-            Command::MoveDown => execute!(self, buffer_map, move_down),
-            Command::Delete => execute!(self, buffer_map, delete),
+            Command::MoveForward => execute!(self, buffer_map, config, move_forward),
+            Command::MoveBackward => execute!(self, buffer_map, config, move_backward),
+            Command::MoveUp => execute!(self, buffer_map, config, move_up),
+            Command::MoveDown => execute!(self, buffer_map, config, move_down),
+            Command::Delete => execute!(self, buffer_map, config, delete),
             Command::ToggleStatusBar => self.draw_state.show_status_bar_mut().toggle().output_ok(),
             Command::ToggleGutter => self.draw_state.show_gutter_mut().toggle().output_ok(),
         }
     }
 
-    fn on_input(&mut self, buffer_map: &mut BufferMap, key_event: KeyEvent) -> Output<(), AnyhowError> {
-        let Some(mut view) = self.view_state_set.active_view_mut(buffer_map)? else { return ().output_ok() };
+    fn on_input(
+        &mut self,
+        buffer_map: &mut BufferMap,
+        config: &Config,
+        key_event: KeyEvent,
+    ) -> Output<(), AnyhowError> {
+        let Some(mut view) = self.view_state_set.active_view_mut(buffer_map, config)? else { return ().output_ok() };
         let KeyCode::Char(character) = key_event.code else { return ().output_ok() };
 
         view.replace(&character.to_string());
@@ -111,12 +116,17 @@ impl Window {
         if let Some(command) = self.key_map_state.on_key_event(&config.key_map, key_event) {
             self.on_command(config, buffer_map, command.clone()).await
         } else {
-            self.on_input(buffer_map, key_event)
+            self.on_input(buffer_map, config, key_event)
         }
     }
 
-    fn on_mouse_event(&mut self, mouse_event: MouseEvent, buffer_map: &mut BufferMap) -> Result<(), AnyhowError> {
-        let Some(mut active_view) = self.view_state_set.active_view_mut(buffer_map)? else {
+    fn on_mouse_event(
+        &mut self,
+        mouse_event: MouseEvent,
+        buffer_map: &mut BufferMap,
+        config: &Config,
+    ) -> Result<(), AnyhowError> {
+        let Some(mut active_view) = self.view_state_set.active_view_mut(buffer_map, config)? else {
             return ().ok();
         };
 
@@ -139,7 +149,7 @@ impl Window {
     ) -> Output<(), AnyhowError> {
         match crossterm_event {
             CrosstermEvent::Key(key_event) => self.on_key_event(config, buffer_map, key_event).await,
-            CrosstermEvent::Mouse(mouse_event) => self.on_mouse_event(mouse_event, buffer_map)?.output_ok(),
+            CrosstermEvent::Mouse(mouse_event) => self.on_mouse_event(mouse_event, buffer_map, config)?.output_ok(),
             CrosstermEvent::Resize(num_cols, num_rows) => self.terminal.resize(num_cols, num_rows)?.output_ok(),
             _crossterm_event => ().output_ok(),
         }

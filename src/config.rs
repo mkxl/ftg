@@ -33,3 +33,9 @@ pub struct Config {
     pub theme: Theme,
     pub key_map: KeyMap<Command>,
 }
+
+impl Config {
+    pub fn gutter_fg(&self) -> Rgb {
+        self.color_scheme.main.bg.lighten_fixed(self.theme.gutter_lighten)
+    }
+}

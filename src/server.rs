@@ -10,7 +10,10 @@ use clap::Args;
 use mkutils::{Output, PointU16, Screen, Socket, Utils};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, io::Error as IoError, path::Path, time::Duration};
-use tokio::net::{UnixListener, UnixStream, unix::SocketAddr};
+use tokio::{
+    net::{UnixListener, UnixStream, unix::SocketAddr},
+    time::Interval,
+};
 use ulid::Ulid;
 
 #[derive(Args, Default, Deserialize, Serialize)]
@@ -22,6 +25,8 @@ pub struct Connect {
 }
 
 pub struct Server {
+    unix_listener: UnixListener,
+    tick_interval: Interval,
     config: Config,
     buffer_map: BufferMap,
     window_map: WindowMap,
@@ -33,22 +38,38 @@ impl Server {
     const DEFAULT_CONFIG_YAML_STR: &str = std::include_str!("default-config.yaml");
     const TICK_PERIOD_DURATION: Duration = Duration::from_millis(15);
 
-    fn new(config: Config) -> Self {
+    fn new(config_filepath: Option<&Path>) -> Result<Self, AnyhowError> {
+        let unix_listener = Self::get_unix_listener()?;
+        let config = Self::get_config(config_filepath)?;
         let buffer_map = BufferMap::empty();
+        let tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
         let window_map = WindowMap::empty();
-
-        Self {
+        let server = Self {
+            unix_listener,
+            tick_interval,
             config,
             buffer_map,
             window_map,
+        };
+
+        server.ok()
+    }
+
+    pub fn get_unix_listener() -> Result<UnixListener, AnyhowError> {
+        let socket_filepath = Self::socket_filepath();
+
+        if socket_filepath.try_exists()? {
+            socket_filepath.remove_file()?;
         }
+
+        UnixListener::bind(socket_filepath)?.ok()
     }
 
     pub fn socket_filepath() -> &'static Utf8Path {
         Utf8Path::new("/tmp/ftg.socket")
     }
 
-    fn config<P: AsRef<Path>>(config_filepath: Option<P>) -> Result<Config, AnyhowError> {
+    fn get_config<P: AsRef<Path>>(config_filepath: Option<P>) -> Result<Config, AnyhowError> {
         if let Some(config_filepath) = config_filepath {
             config_filepath
                 .open()?
@@ -132,27 +153,29 @@ impl Server {
         }
     }
 
+    async fn step(&mut self) -> Result<(), AnyhowError> {
+        tokio::select! {
+            pair_res = self.unix_listener.accept() => self.on_unix_stream(pair_res).await,
+            window_crossterm_event = self.window_map.next_window_crossterm_event() => {
+                self.on_window_crossterm_event(window_crossterm_event).await
+            },
+            _instant = self.tick_interval.tick() => self.on_tick().await.ok(),
+        }
+    }
+
+    async fn run(mut self) {
+        loop {
+            self.step()
+                .await
+                .context(Self::CONTEXT_TOP_LEVEL)
+                .log_if_error()
+                .mem_drop();
+        }
+    }
+
+    // NOTE-6a04fe
     #[tracing::instrument(err)]
     pub async fn serve<P: AsRef<Path> + Debug>(config_filepath: Option<P>) -> Result<(), AnyhowError> {
-        let socket_filepath = Self::socket_filepath();
-        let config = Self::config(config_filepath)?;
-        let mut server = Self::new(config);
-        let mut tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
-
-        socket_filepath.remove_file().mem_drop();
-
-        let unix_listener = UnixListener::bind(socket_filepath)?;
-
-        loop {
-            let unit_res = tokio::select! {
-                pair_res = unix_listener.accept() => server.on_unix_stream(pair_res).await,
-                window_crossterm_event = server.window_map.next_window_crossterm_event() => {
-                    server.on_window_crossterm_event(window_crossterm_event).await
-                },
-                _instant = tick_interval.tick() => server.on_tick().await.ok(),
-            };
-
-            unit_res.context(Self::CONTEXT_TOP_LEVEL).log_if_error().mem_drop();
-        }
+        Self::new(config_filepath.map_as_ref())?.run().await.ok()
     }
 }

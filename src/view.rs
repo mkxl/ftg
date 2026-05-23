@@ -1,14 +1,20 @@
-use crate::{buffer::Buffer, region::Region, selection::Selection, view_state::ViewState};
+use crate::{buffer::Buffer, config::Config, region::Region, selection::Selection, view_state::ViewState};
 use derive_more::Constructor;
 use mkutils::{Interval, PointIsize, Rope, ScrollView, ScrollViewState, Utils};
 use num::traits::{ConstOne, ConstZero};
-use ratatui::{Frame, layout::Rect, style::Modifier, text::Line as RatatuiLine};
+use ratatui::{
+    Frame,
+    layout::Rect,
+    style::{Modifier, Style},
+    text::Line as RatatuiLine,
+};
 use std::ops::Neg;
 
 #[derive(Constructor)]
 pub struct View<'a> {
     view_state: &'a mut ViewState,
     buffer: &'a mut Buffer,
+    config: &'a Config,
 }
 
 impl View<'_> {
@@ -91,6 +97,14 @@ impl View<'_> {
 }
 
 impl ScrollView for View<'_> {
+    fn scroll_view_state(&self) -> &ScrollViewState {
+        self.view_state.scroll_view_state()
+    }
+
+    fn scroll_view_state_mut(&mut self) -> &mut ScrollViewState {
+        self.view_state.scroll_view_state_mut()
+    }
+
     fn render_content(&self, frame: &mut Frame, content_area: Rect) {
         let scroll_offset = self.scroll_view_state().scroll_offset();
         let rows = scroll_offset.y.range_from_len(content_area.height.into());
@@ -116,11 +130,7 @@ impl ScrollView for View<'_> {
         }
     }
 
-    fn scroll_view_state(&self) -> &ScrollViewState {
-        self.view_state.scroll_view_state()
-    }
-
-    fn scroll_view_state_mut(&mut self) -> &mut ScrollViewState {
-        self.view_state.scroll_view_state_mut()
+    fn scroll_bar_style(&self) -> Style {
+        Style::default().fg(self.config.gutter_fg().into())
     }
 }

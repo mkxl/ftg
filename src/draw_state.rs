@@ -109,7 +109,6 @@ impl DrawState {
 
     fn gutter(config: &Config, view: &View) -> Paragraph<'static> {
         let line_num_width = view.line_num_width();
-        let fg_color = config.color_scheme.main.bg.lighten_fixed(config.theme.gutter_lighten);
 
         view.view_state()
             .scroll_view_state()
@@ -117,7 +116,7 @@ impl DrawState {
             .y
             .incremented()
             .range_from_len(view.buffer().rope().size().y)
-            .map(|line_num| Self::gutter_line_str(line_num, config, line_num_width).fg(fg_color))
+            .map(|line_num| Self::gutter_line_str(line_num, config, line_num_width).fg(config.gutter_fg()))
             .collect::<Text>()
             .pipe_into(Paragraph::new)
     }
@@ -132,10 +131,10 @@ impl DrawState {
     ) -> Result<(), AnyhowError> {
         let mut default_view_state = ViewState::default();
         let mut default_buffer = Buffer::empty();
-        let mut view = if let Some(view) = view_state_set.active_view_mut(buffer_map)? {
+        let mut view = if let Some(view) = view_state_set.active_view_mut(buffer_map, config)? {
             view
         } else {
-            View::new(&mut default_view_state, &mut default_buffer)
+            View::new(&mut default_view_state, &mut default_buffer, config)
         };
         let area_set = self.area_set(config, &view, frame.area());
 

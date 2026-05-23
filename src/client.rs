@@ -28,7 +28,7 @@ impl Client {
             return socket.pair(None).ok();
         }
 
-        // NOTE: converting a future to a task requires the future contain only static references
+        // NOTE-6a04fe: converting a future to a task requires the future contain only static references
         // effectively requiring that [config_filepath] be [Option<Utf8PathBuf>] rather than
         // [Option<&Utf8Path>]
         let serve_task_opt = Server::serve(config_filepath).spawn_task().some();
