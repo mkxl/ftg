@@ -53,7 +53,7 @@ impl Server {
             config_filepath
                 .open()?
                 .buf_reader()
-                .to_value_from_json_reader::<Config>()?
+                .to_value_from_yaml_reader::<Config>()?
         } else {
             Self::DEFAULT_CONFIG_YAML_STR.to_value_from_yaml_slice()?
         }
