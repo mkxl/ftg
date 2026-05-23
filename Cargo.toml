@@ -42,8 +42,6 @@ multiple_crate_versions = { level = "allow", priority = 1 }
 struct_field_names = { level = "allow", priority = 1 }
 unit_arg = { level = "allow", priority = 1 }
 option_if_let_else = { level = "allow", priority = 1 }
-unused_self = { level = "allow", priority = 1 }  # TODO: remove
-default_constructed_unit_structs = { level = "allow", priority = 1 }  # TODO: remove
 unused_async = { level = "allow", priority = 1 }  # TODO: remove
 
 [patch.crates-io]
