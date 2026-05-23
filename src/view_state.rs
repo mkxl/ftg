@@ -1,6 +1,7 @@
 use crate::{region::Region, selection::Selection};
 use camino::Utf8PathBuf;
 use mkutils::{ActiveVec, ScrollViewState, ScrollWhen, Utils};
+use std::time::Duration;
 use ulid::Ulid;
 
 pub struct ViewState {
@@ -13,10 +14,11 @@ pub struct ViewState {
 impl ViewState {
     const DEFAULT_TITLE: &'static str = "untitled";
     const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
+    const RENDER_SCROLL_BARS_TIMEOUT: Duration = Duration::from_millis(1000);
 
     pub fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
         let selections = Self::initial_selections();
-        let scroll_view_state = ScrollViewState::new(Self::SCROLL_WHEN);
+        let scroll_view_state = ScrollViewState::new(Self::SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT.some());
 
         Self {
             buffer_id,
