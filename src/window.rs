@@ -1,22 +1,23 @@
 use crate::{
-    buffer_map::BufferMap, command::Command, config::Config, draw_state::DrawState, view::View, view_state::ViewState,
+    buffer_map::BufferMap, command::Command, config::Config, draw_state::DrawState, view_state::ViewState,
     view_state_set::ViewStateSet,
 };
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
 use crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
 use derive_more::Constructor;
-use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Terminal, Utils};
+use mkutils::{KeyMap, KeyMapState, Output, PointU16, Socket, Terminal, Utils};
+use num::traits::ConstOne;
 use std::io::Error as IoError;
 use ulid::Ulid;
 
 macro_rules! execute {
-    ($self:expr, $buffer_map:expr, $config:expr, $method:ident) => {
+    ($self:expr, $buffer_map:expr, $config:expr, $method:ident $(, $args:expr)*) => {
         $self
             .view_state_set
             .active_view_mut($buffer_map, $config)?
             .as_mut()
-            .map(View::$method)
+            .map(|view| view.$method($($args),*))
             .unit()
             .output_ok()
     };
@@ -80,10 +81,14 @@ impl Window {
     ) -> Output<(), AnyhowError> {
         match command {
             Command::Quit => Output::EndOk,
-            Command::MoveForward => execute!(self, buffer_map, config, move_forward),
             Command::MoveBackward => execute!(self, buffer_map, config, move_backward),
+            Command::MoveForward => execute!(self, buffer_map, config, move_forward),
             Command::MoveUp => execute!(self, buffer_map, config, move_up),
             Command::MoveDown => execute!(self, buffer_map, config, move_down),
+            Command::ScrollRight(count) => execute!(self, buffer_map, config, scroll_right, count),
+            Command::ScrollLeft(count) => execute!(self, buffer_map, config, scroll_left, count),
+            Command::ScrollUp(count) => execute!(self, buffer_map, config, scroll_up, count),
+            Command::ScrollDown(count) => execute!(self, buffer_map, config, scroll_down, count),
             Command::Delete => execute!(self, buffer_map, config, delete),
             Command::ToggleStatusBar => self.draw_state.show_status_bar_mut().toggle().output_ok(),
             Command::ToggleGutter => self.draw_state.show_gutter_mut().toggle().output_ok(),
@@ -131,10 +136,10 @@ impl Window {
         };
 
         match mouse_event.kind {
-            MouseEventKind::ScrollDown => active_view.scroll_view_state_mut().scroll_down(1),
-            MouseEventKind::ScrollUp => active_view.scroll_view_state_mut().scroll_up(1),
-            MouseEventKind::ScrollLeft => active_view.scroll_view_state_mut().scroll_left(1),
-            MouseEventKind::ScrollRight => active_view.scroll_view_state_mut().scroll_right(1),
+            MouseEventKind::ScrollLeft => active_view.scroll_left(usize::ONE),
+            MouseEventKind::ScrollRight => active_view.scroll_right(usize::ONE),
+            MouseEventKind::ScrollUp => active_view.scroll_up(usize::ONE),
+            MouseEventKind::ScrollDown => active_view.scroll_down(usize::ONE),
             _ignored_mouse_event_kind => {}
         }
 

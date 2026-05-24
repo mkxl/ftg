@@ -14,7 +14,7 @@ pub struct ViewState {
 impl ViewState {
     const DEFAULT_TITLE: &'static str = "untitled";
     const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
-    const RENDER_SCROLL_BARS_TIMEOUT: Duration = Duration::from_millis(1000);
+    const RENDER_SCROLL_BARS_TIMEOUT: Duration = Duration::from_secs(1);
 
     pub fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
         let selections = Self::initial_selections();

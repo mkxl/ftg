@@ -94,6 +94,22 @@ impl View<'_> {
     pub fn line_num_width(&self) -> usize {
         self.buffer.rope().size().y.ilog10().incremented().cast_or_max()
     }
+
+    pub fn scroll_left(&mut self, count: usize) {
+        self.scroll_view_state_mut().scroll_left(count);
+    }
+
+    pub fn scroll_right(&mut self, count: usize) {
+        self.scroll_view_state_mut().scroll_right(count);
+    }
+
+    pub fn scroll_up(&mut self, count: usize) {
+        self.scroll_view_state_mut().scroll_up(count);
+    }
+
+    pub fn scroll_down(&mut self, count: usize) {
+        self.scroll_view_state_mut().scroll_down(count);
+    }
 }
 
 impl ScrollView for View<'_> {

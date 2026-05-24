@@ -26,6 +26,22 @@ key_map:
     - keys: [down]
       command:
         command: move_down
+    - keys: [alt+j]
+      command:
+        command: scroll_left
+        args: 5
+    - keys: [alt+l]
+      command:
+        command: scroll_right
+        args: 5
+    - keys: [alt+i]
+      command:
+        command: scroll_up
+        args: 5
+    - keys: [alt+k]
+      command:
+        command: scroll_down
+        args: 5
     - keys: [backspace]
       command:
         command: delete
