@@ -1,59 +1,53 @@
 color_scheme:
-    main:
-        fg: "#B7B9BC"
-        bg: "#1A1D23"
-    status_bar:
-        fg: "#2A2A2A"
-        bg: "#505050"
+  main:
+    fg: "#B7B9BC"
+    bg: "#1A1D23"
+  status_bar:
+    fg: "#2A2A2A"
+    bg: "#505050"
 
 theme:
-    gutter_lighten: 0.25
-    gutter_padding: 3
+  gutter_lighten: 0.25
+  gutter_padding: 3
 
 key_map:
-    - keys: [ctrl+q]
-      command:
-        command: quit
-    - keys: [left]
-      command:
-        command: move_backward
-    - keys: [right]
-      command:
-        command: move_forward
-    - keys: [up]
-      command:
-        command: move_up
-    - keys: [down]
-      command:
-        command: move_down
-    - keys: [alt+j]
-      command:
-        command: scroll_left
-        args: 5
-    - keys: [alt+l]
-      command:
-        command: scroll_right
-        args: 5
-    - keys: [alt+i]
-      command:
-        command: scroll_up
-        args: 5
-    - keys: [alt+k]
-      command:
-        command: scroll_down
-        args: 5
-    - keys: [backspace]
-      command:
-        command: delete
-    - keys: [alt+s]
-      command:
-        command: toggle_status_bar
-    - keys: [alt+g]
-      command:
-        command: toggle_gutter
-    # - keys: ["up"]
-    #   command: scroll_up
-    # - keys: ["down"]
-    #   command: scroll_down
-    # - keys: ["ctrl+shift+s"]
-    #   command: toggle_tab_sidebar
+  - keys: [ctrl+q]
+    binding:
+      command: quit
+  - keys: [left]
+    binding:
+      command: move_backward
+  - keys: [right]
+    binding:
+      command: move_forward
+  - keys: [up]
+    binding:
+      command: move_up
+  - keys: [down]
+    binding:
+      command: move_down
+  - keys: [alt+j]
+    binding:
+      command: scroll_left
+      args: 5
+  - keys: [alt+l]
+    binding:
+      command: scroll_right
+      args: 5
+  - keys: [alt+i]
+    binding:
+      command: scroll_up
+      args: 5
+  - keys: [alt+k]
+    binding:
+      command: scroll_down
+      args: 5
+  - keys: [backspace]
+    binding:
+      command: delete
+  - keys: [alt+s]
+    binding:
+      command: toggle_status_bar
+  - keys: [alt+g]
+    binding:
+      command: toggle_gutter

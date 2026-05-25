@@ -45,10 +45,12 @@ pub struct Window {
 }
 
 impl Window {
+    const FORCE_TERMINAL_FULL_REDRAWS: bool = false;
+
     pub fn new(socket: Socket, screen_size: PointU16, key_map: &KeyMap<Command>) -> Result<Self, IoError> {
         let window_id = Ulid::new();
         let view_state_set = ViewStateSet::empty();
-        let terminal = Terminal::new(screen_size)?;
+        let terminal = Terminal::new(screen_size, Self::FORCE_TERMINAL_FULL_REDRAWS)?;
         let key_map_state = KeyMapState::new(key_map);
         let draw_state = DrawState::default();
         let window = Self {

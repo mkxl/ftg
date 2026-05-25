@@ -16,6 +16,7 @@ impl Client {
     const MOUSE_CAPTURE_ENABLED: bool = true;
     const BRACKETED_PASTE_ENABLED: bool = true;
     const SERVER_WARMUP_DURATION: Duration = Duration::from_millis(25);
+    const LINE_WRAP_DISABLED: bool = false;
 
     async fn socket() -> Result<Socket, IoError> {
         Socket::connect(Server::socket_filepath().as_std_path()).await
@@ -42,6 +43,7 @@ impl Client {
         let mut screen = Screen::config()
             .with_mouse_capture(Self::MOUSE_CAPTURE_ENABLED)
             .with_bracketed_paste(Self::BRACKETED_PASTE_ENABLED)
+            .with_line_wrap_disabled(Self::LINE_WRAP_DISABLED)
             .build()?;
         let mut crossterm_event_stream = CrosstermEventStream::new();
         let (mut socket, mut serve_task_opt) = Self::serve_and_connect(config_filepath).await?;
