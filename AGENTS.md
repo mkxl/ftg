@@ -27,6 +27,9 @@
 - Match local import aliases such as `anyhow::Error as AnyhowError` and `std::io::Error as IoError`; avoid introducing inconsistent `Result` type aliases.
 - Existing code uses early-return `let ... else` for absent optional state and logs/drops recoverable per-window/per-file errors instead of crashing the server loop.
 
+## Agent Maintenance
+- When a source change alters commands, architecture, config behavior, style conventions, or workflow constraints documented here, update `AGENTS.md` in the same change.
+
 ## Code Constraints
 - `Cargo.toml` denies Rust warnings and denies Clippy `all`, `cargo`, `nursery`, and `pedantic`; expect new warnings to fail `cargo clippy`.
 - Formatting is customized in `rustfmt.toml` (`max_width = 120`, crate-level import grouping), so run rustfmt instead of hand-wrapping to defaults.
