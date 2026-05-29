@@ -90,12 +90,7 @@ impl DrawState {
 
     fn side_tab_and_buffer(&self, view_state_set: &ViewStateSet, buffer: Rect) -> [Rect; 2] {
         let side_tab_width = if self.show_side_tab {
-            view_state_set
-                .view_states()
-                .iter()
-                .map(|view_state| view_state.title().extended_graphemes().count())
-                .max()
-                .unwrap_or(usize::ZERO)
+            SideTabView::width(view_state_set)
         } else {
             usize::ZERO
         };

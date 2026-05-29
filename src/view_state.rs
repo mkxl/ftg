@@ -36,6 +36,10 @@ impl ViewState {
         self.buffer_id
     }
 
+    pub const fn filepath(&self) -> Option<&Utf8PathBuf> {
+        self.filepath.as_ref()
+    }
+
     pub const fn scroll_view_state(&self) -> &ScrollViewState {
         &self.scroll_view_state
     }
