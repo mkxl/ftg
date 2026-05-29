@@ -179,11 +179,6 @@ impl DrawState {
 
         if self.show_side_tab {
             let mut side_tab_view = SideTabView::new(view_state_set, &mut self.side_tab_scroll_view_state, config);
-            let side_tab_size = side_tab_view.size();
-
-            side_tab_view
-                .scroll_view_state_mut()
-                .set_latest_content_size(side_tab_size);
             side_tab_view.render(frame, side_tab);
         }
 

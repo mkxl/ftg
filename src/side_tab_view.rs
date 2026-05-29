@@ -52,6 +52,19 @@ impl SideTabView<'_> {
         PointUsize::new(width, height)
     }
 
+    fn side_tab_content_size(&self, content_area: Rect) -> PointUsize {
+        let width = Self::width(self.view_state_set);
+        let height = self
+            .view_state_set
+            .view_states()
+            .len()
+            .saturating_sub(1)
+            .saturating_mul(Self::CARD_HEIGHT)
+            .saturating_add(content_area.height.into());
+
+        PointUsize::new(width, height)
+    }
+
     fn tab_file_name(view_state: &ViewState) -> &str {
         view_state.title()
     }
@@ -149,7 +162,9 @@ impl ScrollView for SideTabView<'_> {
 
     fn render(&mut self, frame: &mut Frame, scroll_view_area: Rect) {
         let content_area = self.content_area(scroll_view_area);
+        let content_size = self.side_tab_content_size(content_area);
 
+        self.scroll_view_state_mut().set_latest_content_size(content_size);
         self.scroll_view_state_mut()
             .set_latest_scroll_view_area_size(content_area.as_size().into());
         self.render_content(frame, content_area);
