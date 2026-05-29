@@ -139,9 +139,10 @@ impl Window {
         let terminal_size = self.terminal.size()?;
 
         if self.draw_state.contains_side_tab_position(
-            &self.view_state_set,
+            config,
             mouse_event.column,
             mouse_event.row,
+            terminal_size.x,
             terminal_size.y,
         ) {
             match mouse_event.kind {

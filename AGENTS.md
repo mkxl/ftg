@@ -16,6 +16,7 @@
 ## Config And Commands
 - The built-in config is `src/default-config.yaml`, embedded with `include_str!`; update it with any config schema/key binding changes.
 - User config is loaded with `--config-file` and must deserialize into `Config` in `src/config.rs`.
+- Theme config includes `side_tab_percentage`; color config includes `side_tab` and `side_tab_path` for tab bar styling.
 - Editor commands are serde-tagged as snake_case in `src/command.rs`; command enum changes must match YAML `binding.command` values.
 - Tracing is JSON when `--tracing-file` is supplied; `--tokio-console` is supported and the Nix dev shell includes `tokio-console`.
 

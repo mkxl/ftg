@@ -19,12 +19,15 @@ impl From<ColorSpec> for Style {
 pub struct ColorScheme {
     pub main: ColorSpec,
     pub status_bar: ColorSpec,
+    pub side_tab: ColorSpec,
+    pub side_tab_path: ColorSpec,
 }
 
 #[derive(Deserialize)]
 pub struct Theme {
     pub gutter_lighten: f32,
     pub gutter_padding: usize,
+    pub side_tab_percentage: u16,
 }
 
 #[derive(Deserialize)]

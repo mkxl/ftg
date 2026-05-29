@@ -62,24 +62,27 @@ impl DrawState {
     }
 
     pub fn scroll_side_tab_up(&mut self, count: usize) {
-        self.side_tab_scroll_view_state.scroll_up(count);
+        self.side_tab_scroll_view_state
+            .scroll_up(count.saturating_mul(SideTabView::CARD_HEIGHT));
     }
 
     pub fn scroll_side_tab_down(&mut self, count: usize) {
-        self.side_tab_scroll_view_state.scroll_down(count);
+        self.side_tab_scroll_view_state
+            .scroll_down(count.saturating_mul(SideTabView::CARD_HEIGHT));
     }
 
     pub fn contains_side_tab_position(
         &self,
-        view_state_set: &ViewStateSet,
+        config: &Config,
         column: u16,
         row: u16,
+        num_cols: u16,
         num_rows: u16,
     ) -> bool {
-        let side_tab_width = self.side_tab_width(view_state_set);
+        let side_tab_width = self.side_tab_width(config, num_cols);
         let side_tab_height = num_rows.saturating_sub(self.show_status_bar.into());
 
-        self.show_side_tab && column < side_tab_width.cast_or_max::<u16>() && row < side_tab_height
+        self.show_side_tab && column < side_tab_width && row < side_tab_height
     }
 
     fn buffer_and_status_bar(&self, frame_area: Rect) -> [Rect; 2] {
@@ -117,20 +120,19 @@ impl DrawState {
         layout.areas(buffer)
     }
 
-    fn side_tab_width(&self, view_state_set: &ViewStateSet) -> usize {
+    const fn side_tab_width(&self, config: &Config, width: u16) -> u16 {
         if self.show_side_tab {
-            SideTabView::width(view_state_set)
+            width
+                .saturating_mul(config.theme.side_tab_percentage)
+                .saturating_div(100)
         } else {
-            usize::ZERO
+            u16::ZERO
         }
     }
 
-    fn side_tab_and_buffer(&self, view_state_set: &ViewStateSet, buffer: Rect) -> [Rect; 2] {
-        let side_tab_width = self.side_tab_width(view_state_set);
-        let constraints = [
-            Constraint::Length(side_tab_width.cast_or_max()),
-            Constraint::Fill(u16::ONE),
-        ];
+    fn side_tab_and_buffer(&self, config: &Config, buffer: Rect) -> [Rect; 2] {
+        let side_tab_width = self.side_tab_width(config, buffer.width);
+        let constraints = [Constraint::Length(side_tab_width), Constraint::Fill(u16::ONE)];
         let layout = Layout::horizontal(constraints);
 
         layout.areas(buffer)
@@ -169,7 +171,7 @@ impl DrawState {
         frame: &mut Frame,
     ) -> Result<(), AnyhowError> {
         let [buffer, status_bar] = self.buffer_and_status_bar(frame.area());
-        let [side_tab, buffer] = self.side_tab_and_buffer(view_state_set, buffer);
+        let [side_tab, buffer] = self.side_tab_and_buffer(config, buffer);
 
         Self::background(config).render_to(frame, frame.area());
         Self::status_bar(config).render_to(frame, status_bar);

@@ -5,10 +5,17 @@ color_scheme:
   status_bar:
     fg: "#2A2A2A"
     bg: "#505050"
+  side_tab:
+    fg: "#B7B9BC"
+    bg: "#22262E"
+  side_tab_path:
+    fg: "#666A73"
+    bg: "#22262E"
 
 theme:
   gutter_lighten: 0.25
   gutter_padding: 3
+  side_tab_percentage: 25
 
 key_map:
   - keys: [ctrl+q]
