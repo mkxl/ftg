@@ -37,6 +37,14 @@ impl ViewStateSet {
         self.view_states.as_ref().map_or(0, ActiveVec::active_index)
     }
 
+    pub fn line_num_width(&self, buffer_map: &BufferMap) -> Option<usize> {
+        self.view_states()
+            .iter()
+            .filter_map(|view_state| buffer_map.get(&view_state.buffer_id()))
+            .map(|buffer| buffer.size().y.ilog10().incremented().cast_or_max())
+            .max()
+    }
+
     pub fn cycle_prev(&mut self) {
         if let Some(view_states) = &mut self.view_states {
             view_states.cycle_prev();

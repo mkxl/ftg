@@ -71,9 +71,9 @@ impl DrawState {
         )
     }
 
-    fn gutter_and_buffer(&self, config: &Config, view: &View, buffer: Rect) -> [Rect; 2] {
+    fn gutter_and_buffer(&self, config: &Config, line_num_width: usize, buffer: Rect) -> [Rect; 2] {
         let gutter_width = if self.show_gutter {
-            Self::gutter_line_str(usize::ZERO, config, view.line_num_width())
+            Self::gutter_line_str(usize::ZERO, config, line_num_width)
                 .extended_graphemes()
                 .count()
         } else {
@@ -120,9 +120,7 @@ impl DrawState {
         Self::paragraph(config.color_scheme.status_bar)
     }
 
-    fn gutter(config: &Config, view: &View) -> Paragraph<'static> {
-        let line_num_width = view.line_num_width();
-
+    fn gutter(config: &Config, view: &View, line_num_width: usize) -> Paragraph<'static> {
         view.view_state()
             .scroll_view_state()
             .scroll_offset()
@@ -147,6 +145,8 @@ impl DrawState {
 
         Self::background(config).render_to(frame, frame.area());
         Self::status_bar(config).render_to(frame, status_bar);
+        let line_num_width = view_state_set.line_num_width(buffer_map).unwrap_or(usize::ONE);
+
         if self.show_side_tab {
             let mut side_tab_view = SideTabView::new(view_state_set, &mut self.side_tab_scroll_view_state, config);
             let side_tab_size = side_tab_view.size();
@@ -164,9 +164,9 @@ impl DrawState {
         } else {
             View::new(&mut default_view_state, &mut default_buffer, config)
         };
-        let [gutter, buffer] = self.gutter_and_buffer(config, &view, buffer);
+        let [gutter, buffer] = self.gutter_and_buffer(config, line_num_width, buffer);
 
-        Self::gutter(config, &view).render_to(frame, gutter);
+        Self::gutter(config, &view, line_num_width).render_to(frame, gutter);
         view.render(frame, buffer);
         title.assign(view.view_state().title().to_owned().into_cow_owned());
 
