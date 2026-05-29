@@ -92,7 +92,7 @@ impl View<'_> {
     }
 
     pub fn line_num_width(&self) -> usize {
-        self.buffer.rope().size().y.ilog10().incremented().cast_or_max()
+        self.buffer.size().y.ilog10().incremented().cast_or_max()
     }
 
     pub fn scroll_left(&mut self, count: usize) {

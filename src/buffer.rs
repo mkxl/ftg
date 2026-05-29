@@ -1,5 +1,5 @@
 use camino::Utf8Path;
-use mkutils::{Rope, Utils};
+use mkutils::{PointUsize, Rope, Utils};
 use std::io::Error as IoError;
 use ulid::Ulid;
 
@@ -40,5 +40,13 @@ impl Buffer {
 
     pub const fn rope_mut(&mut self) -> &mut Rope {
         &mut self.rope
+    }
+
+    pub fn size(&self) -> PointUsize {
+        let mut size = self.rope.size();
+
+        size.y.increment();
+
+        size
     }
 }

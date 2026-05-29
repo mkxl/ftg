@@ -24,7 +24,7 @@ impl ViewStateSet {
         // NOTE: see [latest-content-size-abb4a0]
         view_state
             .scroll_view_state_mut()
-            .set_latest_content_size(buffer.rope().size());
+            .set_latest_content_size(buffer.size());
 
         View::new(view_state, buffer, config).some().ok()
     }
