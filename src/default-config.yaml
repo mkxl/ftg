@@ -11,6 +11,12 @@ color_scheme:
   side_tab_path:
     fg: "#666A73"
     bg: "#22262E"
+  side_tab_active:
+    fg: "#D7DAE0"
+    bg: "#2B303A"
+  side_tab_path_active:
+    fg: "#858B96"
+    bg: "#2B303A"
 
 theme:
   gutter_lighten: 0.25

@@ -5,7 +5,7 @@ use num::traits::{ConstOne, ConstZero};
 use ratatui::{
     Frame,
     layout::{Margin, Rect},
-    style::{Modifier, Style, Styled},
+    style::{Style, Styled},
     text::{Line as RatatuiLine, Text},
     widgets::{Block, Paragraph},
 };
@@ -22,7 +22,6 @@ impl SideTabView<'_> {
     pub const CARD_HEIGHT: usize = 4;
     const HORIZONTAL_PADDING: usize = 1;
     const CONTENT_AREA_WIDTH_MARGIN: u16 = 1;
-    const CONTENT_AREA_HEIGHT_MARGIN: u16 = 1;
     const CARD_CONTENT_MARGIN: Margin = Margin::new(1, 1);
 
     pub fn width(view_state_set: &ViewStateSet) -> usize {
@@ -79,19 +78,36 @@ impl SideTabView<'_> {
     }
 
     fn block(&self, index: usize) -> Block<'static> {
-        let style = Style::from(self.config.color_scheme.side_tab);
-        let style =
-            (index == self.view_state_set.active_index()).if_else(style.add_modifier(Modifier::REVERSED), style);
+        let border_style = Style::from(self.config.color_scheme.side_tab);
+        let style = (index == self.view_state_set.active_index())
+            .if_else(Style::from(self.config.color_scheme.side_tab_active), border_style);
 
-        Block::bordered().border_style(style)
+        Block::bordered().border_style(border_style).style(style)
     }
 
-    fn text(&self, view_state: &ViewState, cols: std::ops::Range<usize>, text_width: usize) -> Text<'static> {
+    fn text(
+        &self,
+        view_state: &ViewState,
+        index: usize,
+        cols: std::ops::Range<usize>,
+        text_width: usize,
+    ) -> Text<'static> {
+        let (file_name_style, filepath_style) = if index == self.view_state_set.active_index() {
+            (
+                self.config.color_scheme.side_tab_active,
+                self.config.color_scheme.side_tab_path_active,
+            )
+        } else {
+            (
+                self.config.color_scheme.side_tab,
+                self.config.color_scheme.side_tab_path,
+            )
+        };
         let file_name = Self::visible_string(Self::tab_file_name(view_state), cols.clone());
-        let file_name = Self::padded_string(&file_name, text_width).set_style(self.config.color_scheme.side_tab);
+        let file_name = Self::padded_string(&file_name, text_width).set_style(file_name_style);
         let tab_filepath = Self::tab_filepath(view_state);
         let filepath = Self::visible_string(&tab_filepath, cols);
-        let filepath = Self::padded_string(&filepath, text_width).set_style(self.config.color_scheme.side_tab_path);
+        let filepath = Self::padded_string(&filepath, text_width).set_style(filepath_style);
 
         [RatatuiLine::from(file_name), RatatuiLine::from(filepath)]
             .into_iter()
@@ -111,7 +127,7 @@ impl SideTabView<'_> {
         let text_width = text_area.width.into();
 
         block.render_to(frame, card_area);
-        Paragraph::new(self.text(view_state, cols, text_width)).render_to(frame, text_area);
+        Paragraph::new(self.text(view_state, index, cols, text_width)).render_to(frame, text_area);
     }
 }
 
@@ -127,9 +143,18 @@ impl ScrollView for SideTabView<'_> {
     fn content_area(&self, scroll_view_area: Rect) -> Rect {
         Rect {
             width: scroll_view_area.width.saturating_sub(Self::CONTENT_AREA_WIDTH_MARGIN),
-            height: scroll_view_area.height.saturating_sub(Self::CONTENT_AREA_HEIGHT_MARGIN),
             ..scroll_view_area
         }
+    }
+
+    fn render(&mut self, frame: &mut Frame, scroll_view_area: Rect) {
+        let content_area = self.content_area(scroll_view_area);
+
+        self.scroll_view_state_mut()
+            .set_latest_scroll_view_area_size(content_area.as_size().into());
+        self.render_content(frame, content_area);
+        self.render_scroll_bars(frame, scroll_view_area);
+        self.render_misc(frame, scroll_view_area);
     }
 
     fn render_content(&self, frame: &mut Frame, content_area: Rect) {
@@ -152,12 +177,9 @@ impl ScrollView for SideTabView<'_> {
             }
 
             let Some(view_state) = self.view_state_set.view_states().get(index) else { break };
-            let card_area = Rect::new(
-                content_area.x,
-                content_area.y + card_screen_y.cast_or_max::<u16>(),
-                content_area.width,
-                card_height,
-            );
+            let card_area_y = content_area.y + card_screen_y.cast_or_max::<u16>();
+            let card_area_height = card_height.min(content_area.bottom().saturating_sub(card_area_y));
+            let card_area = Rect::new(content_area.x, card_area_y, content_area.width, card_area_height);
 
             self.render_card(frame, view_state, index, card_area, cols.clone());
         }
@@ -167,17 +189,18 @@ impl ScrollView for SideTabView<'_> {
         Style::default().fg(self.config.gutter_fg().into())
     }
 
-    fn render_scroll_bars(&self, frame: &mut Frame, content_area: Rect) {
+    fn render_scroll_bars(&self, frame: &mut Frame, scroll_view_area: Rect) {
         let scroll_view_state = self.scroll_view_state();
 
-        if !scroll_view_state.should_render_scroll_bars() || content_area.height < 2 || content_area.width == 0 {
+        if !scroll_view_state.should_render_scroll_bars() || scroll_view_area.height < 2 || scroll_view_area.width == 0
+        {
             return;
         }
 
         if scroll_view_state.max_scroll_offset().y.is_positive() {
             scroll_view_state
                 .scroll_bar(Orientation::Vertical, self.scroll_bar_style())
-                .render(content_area, frame.buffer_mut());
+                .render(scroll_view_area, frame.buffer_mut());
         }
     }
 }

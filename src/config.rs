@@ -21,6 +21,8 @@ pub struct ColorScheme {
     pub status_bar: ColorSpec,
     pub side_tab: ColorSpec,
     pub side_tab_path: ColorSpec,
+    pub side_tab_active: ColorSpec,
+    pub side_tab_path_active: ColorSpec,
 }
 
 #[derive(Deserialize)]
