@@ -35,12 +35,10 @@ key_map:
       command: move_down
   - keys: [alt+j]
     binding:
-      command: scroll_left
-      args: 5
+      command: cycle_tab_prev
   - keys: [alt+l]
     binding:
-      command: scroll_right
-      args: 5
+      command: cycle_tab_next
   - keys: [alt+i]
     binding:
       command: scroll_up
