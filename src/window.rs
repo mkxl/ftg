@@ -95,6 +95,8 @@ impl Window {
             Command::ToggleStatusBar => self.draw_state.show_status_bar_mut().toggle().output_ok(),
             Command::ToggleGutter => self.draw_state.show_gutter_mut().toggle().output_ok(),
             Command::ToggleSideTab => self.draw_state.show_side_tab_mut().toggle().output_ok(),
+            Command::CycleTabPrev => self.view_state_set.cycle_prev().output_ok(),
+            Command::CycleTabNext => self.view_state_set.cycle_next().output_ok(),
         }
     }
 

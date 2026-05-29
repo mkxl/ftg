@@ -54,3 +54,9 @@ key_map:
   - keys: [alt+t]
     binding:
       command: toggle_side_tab
+  - keys: [alt+left]
+    binding:
+      command: cycle_tab_prev
+  - keys: [alt+right]
+    binding:
+      command: cycle_tab_next

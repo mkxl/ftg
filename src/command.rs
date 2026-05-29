@@ -16,4 +16,6 @@ pub enum Command {
     ToggleStatusBar,
     ToggleGutter,
     ToggleSideTab,
+    CycleTabPrev,
+    CycleTabNext,
 }
