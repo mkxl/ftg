@@ -136,6 +136,25 @@ impl Window {
         buffer_map: &mut BufferMap,
         config: &Config,
     ) -> Result<(), AnyhowError> {
+        let terminal_size = self.terminal.size()?;
+
+        if self.draw_state.contains_side_tab_position(
+            &self.view_state_set,
+            mouse_event.column,
+            mouse_event.row,
+            terminal_size.y,
+        ) {
+            match mouse_event.kind {
+                MouseEventKind::ScrollLeft => self.draw_state.scroll_side_tab_left(usize::ONE),
+                MouseEventKind::ScrollRight => self.draw_state.scroll_side_tab_right(usize::ONE),
+                MouseEventKind::ScrollUp => self.draw_state.scroll_side_tab_up(usize::ONE),
+                MouseEventKind::ScrollDown => self.draw_state.scroll_side_tab_down(usize::ONE),
+                _ignored_mouse_event_kind => {}
+            }
+
+            return ().ok();
+        }
+
         let Some(mut active_view) = self.view_state_set.active_view_mut(buffer_map, config)? else {
             return ().ok();
         };

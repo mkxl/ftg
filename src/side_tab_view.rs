@@ -1,6 +1,6 @@
 use crate::{config::Config, view_state::ViewState, view_state_set::ViewStateSet};
 use derive_more::Constructor;
-use mkutils::{PointUsize, ScrollView, ScrollViewState, Utils};
+use mkutils::{Orientation, PointUsize, ScrollView, ScrollViewState, Utils};
 use num::traits::{ConstOne, ConstZero};
 use ratatui::{
     Frame,
@@ -125,5 +125,19 @@ impl ScrollView for SideTabView<'_> {
 
     fn scroll_bar_style(&self) -> Style {
         Style::default().fg(self.config.gutter_fg().into())
+    }
+
+    fn render_scroll_bars(&self, frame: &mut Frame, content_area: Rect) {
+        let scroll_view_state = self.scroll_view_state();
+
+        if !scroll_view_state.should_render_scroll_bars() || content_area.height < 2 || content_area.width == 0 {
+            return;
+        }
+
+        if scroll_view_state.max_scroll_offset().y.is_positive() {
+            scroll_view_state
+                .scroll_bar(Orientation::Vertical, self.scroll_bar_style())
+                .render(content_area, frame.buffer_mut());
+        }
     }
 }
