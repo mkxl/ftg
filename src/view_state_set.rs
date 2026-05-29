@@ -46,15 +46,11 @@ impl ViewStateSet {
     }
 
     pub fn cycle_prev(&mut self) {
-        if let Some(view_states) = &mut self.view_states {
-            view_states.cycle_prev();
-        }
+        self.view_states.as_mut().map(ActiveVec::cycle_prev);
     }
 
     pub fn cycle_next(&mut self) {
-        if let Some(view_states) = &mut self.view_states {
-            view_states.cycle_next();
-        }
+        self.view_states.as_mut().map(ActiveVec::cycle_next);
     }
 
     pub fn push(&mut self, view_state: ViewState) {
