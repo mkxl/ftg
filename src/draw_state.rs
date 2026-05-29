@@ -115,7 +115,7 @@ impl DrawState {
             .scroll_offset()
             .y
             .incremented()
-            .range_from_len(view.buffer().rope().size().y)
+            .range_from_len(view.buffer().size().y)
             .map(|line_num| Self::gutter_line_str(line_num, config, line_num_width).fg(config.gutter_fg()))
             .collect::<Text>()
             .pipe_into(Paragraph::new)
