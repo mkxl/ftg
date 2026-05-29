@@ -8,6 +8,7 @@ mod draw_state;
 mod region;
 mod selection;
 mod server;
+mod side_tab_view;
 mod view;
 mod view_state;
 mod view_state_set;

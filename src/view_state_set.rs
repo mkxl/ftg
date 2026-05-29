@@ -29,6 +29,14 @@ impl ViewStateSet {
         View::new(view_state, buffer, config).some().ok()
     }
 
+    pub fn view_states(&self) -> &[ViewState] {
+        self.view_states.as_ref().map_or([].as_slice(), ActiveVec::as_slice)
+    }
+
+    pub fn active_index(&self) -> usize {
+        self.view_states.as_ref().map_or(0, ActiveVec::active_index)
+    }
+
     pub fn push(&mut self, view_state: ViewState) {
         if let Some(view_states) = &mut self.view_states {
             let (active_index, _view_state) = view_states.push(view_state);

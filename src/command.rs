@@ -15,4 +15,5 @@ pub enum Command {
     Delete,
     ToggleStatusBar,
     ToggleGutter,
+    ToggleSideTab,
 }

@@ -2,12 +2,13 @@ use crate::{
     buffer::Buffer,
     buffer_map::BufferMap,
     config::{ColorSpec, Config},
+    side_tab_view::SideTabView,
     view::View,
     view_state::ViewState,
     view_state_set::ViewStateSet,
 };
 use anyhow::Error as AnyhowError;
-use mkutils::{Default as MkutilsDefault, ScrollView, Terminal, Utils};
+use mkutils::{Default as MkutilsDefault, ScrollView, ScrollViewState, ScrollWhen, Terminal, Utils};
 use num::traits::{ConstOne, ConstZero};
 use ratatui::{
     Frame,
@@ -18,13 +19,6 @@ use ratatui::{
 };
 use std::borrow::Cow;
 
-struct AreaSet {
-    background: Rect,
-    gutter: Rect,
-    buffer: Rect,
-    status_bar: Rect,
-}
-
 #[derive(MkutilsDefault)]
 pub struct DrawState {
     #[default(Self::DEFAULT_SHOW_STATUS_BAR)]
@@ -32,12 +26,20 @@ pub struct DrawState {
 
     #[default(Self::DEFAULT_SHOW_GUTTER)]
     show_gutter: bool,
+
+    #[default(Self::DEFAULT_SHOW_SIDE_TAB)]
+    show_side_tab: bool,
+
+    #[default(ScrollViewState::new(Self::SIDE_TAB_SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT.some()))]
+    side_tab_scroll_view_state: ScrollViewState,
 }
 
 impl DrawState {
-    const EMPTY_VIEWS_TITLE: &str = "undefined";
     const DEFAULT_SHOW_STATUS_BAR: bool = true;
     const DEFAULT_SHOW_GUTTER: bool = true;
+    const DEFAULT_SHOW_SIDE_TAB: bool = true;
+    const SIDE_TAB_SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
+    const RENDER_SCROLL_BARS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
 
     pub const fn show_status_bar_mut(&mut self) -> &mut bool {
         &mut self.show_status_bar
@@ -47,17 +49,8 @@ impl DrawState {
         &mut self.show_gutter
     }
 
-    fn area_set(&self, config: &Config, view: &View, frame_area: Rect) -> AreaSet {
-        let background = frame_area;
-        let [buffer, status_bar] = self.buffer_and_status_bar(frame_area);
-        let [gutter, buffer] = self.gutter_and_buffer(config, view, buffer);
-
-        AreaSet {
-            background,
-            gutter,
-            buffer,
-            status_bar,
-        }
+    pub const fn show_side_tab_mut(&mut self) -> &mut bool {
+        &mut self.show_side_tab
     }
 
     fn buffer_and_status_bar(&self, frame_area: Rect) -> [Rect; 2] {
@@ -95,6 +88,26 @@ impl DrawState {
         layout.areas(buffer)
     }
 
+    fn side_tab_and_buffer(&self, view_state_set: &ViewStateSet, buffer: Rect) -> [Rect; 2] {
+        let side_tab_width = if self.show_side_tab {
+            view_state_set
+                .view_states()
+                .iter()
+                .map(|view_state| view_state.title().extended_graphemes().count())
+                .max()
+                .unwrap_or(usize::ZERO)
+        } else {
+            usize::ZERO
+        };
+        let constraints = [
+            Constraint::Length(side_tab_width.cast_or_max()),
+            Constraint::Fill(u16::ONE),
+        ];
+        let layout = Layout::horizontal(constraints);
+
+        layout.areas(buffer)
+    }
+
     fn paragraph(color_spec: ColorSpec) -> Paragraph<'static> {
         Paragraph::default().set_style(color_spec)
     }
@@ -122,13 +135,28 @@ impl DrawState {
     }
 
     fn draw_impl<'a>(
-        &self,
+        &mut self,
         config: &Config,
         buffer_map: &'a mut BufferMap,
         view_state_set: &'a mut ViewStateSet,
         title: &mut Cow<'a, str>,
         frame: &mut Frame,
     ) -> Result<(), AnyhowError> {
+        let [buffer, status_bar] = self.buffer_and_status_bar(frame.area());
+        let [side_tab, buffer] = self.side_tab_and_buffer(view_state_set, buffer);
+
+        Self::background(config).render_to(frame, frame.area());
+        Self::status_bar(config).render_to(frame, status_bar);
+        if self.show_side_tab {
+            let mut side_tab_view = SideTabView::new(view_state_set, &mut self.side_tab_scroll_view_state, config);
+            let side_tab_size = side_tab_view.size();
+
+            side_tab_view
+                .scroll_view_state_mut()
+                .set_latest_content_size(side_tab_size);
+            side_tab_view.render(frame, side_tab);
+        }
+
         let mut default_view_state = ViewState::default();
         let mut default_buffer = Buffer::empty();
         let mut view = if let Some(view) = view_state_set.active_view_mut(buffer_map, config)? {
@@ -136,19 +164,17 @@ impl DrawState {
         } else {
             View::new(&mut default_view_state, &mut default_buffer, config)
         };
-        let area_set = self.area_set(config, &view, frame.area());
+        let [gutter, buffer] = self.gutter_and_buffer(config, &view, buffer);
 
-        Self::background(config).render_to(frame, area_set.background);
-        Self::status_bar(config).render_to(frame, area_set.status_bar);
-        Self::gutter(config, &view).render_to(frame, area_set.gutter);
-        view.render(frame, area_set.buffer);
+        Self::gutter(config, &view).render_to(frame, gutter);
+        view.render(frame, buffer);
         title.assign(view.view_state().title().to_owned().into_cow_owned());
 
         ().ok()
     }
 
     pub fn draw(
-        &self,
+        &mut self,
         config: &Config,
         buffer_map: &mut BufferMap,
         view_state_set: &mut ViewStateSet,

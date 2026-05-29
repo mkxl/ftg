@@ -94,6 +94,7 @@ impl Window {
             Command::Delete => execute!(self, buffer_map, config, delete),
             Command::ToggleStatusBar => self.draw_state.show_status_bar_mut().toggle().output_ok(),
             Command::ToggleGutter => self.draw_state.show_gutter_mut().toggle().output_ok(),
+            Command::ToggleSideTab => self.draw_state.show_side_tab_mut().toggle().output_ok(),
         }
     }
 
