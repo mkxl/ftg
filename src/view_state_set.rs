@@ -55,9 +55,7 @@ impl ViewStateSet {
 
     pub fn push(&mut self, view_state: ViewState) {
         if let Some(view_states) = &mut self.view_states {
-            let (active_index, _view_state) = view_states.push(view_state);
-
-            view_states.set_active_index(active_index);
+            view_states.push(view_state);
         } else {
             self.view_states = ActiveVec::new(view_state).some();
         }
