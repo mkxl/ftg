@@ -51,3 +51,12 @@ key_map:
   - keys: [alt+g]
     binding:
       command: toggle_gutter
+  - keys: [alt+t]
+    binding:
+      command: toggle_tabs
+  - keys: [alt+j]
+    binding:
+      command: prev_tab
+  - keys: [alt+l]
+    binding:
+      command: next_tab

@@ -9,7 +9,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
 use mkutils::{Output, PointU16, Screen, Socket, Utils};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, io::Error as IoError, path::Path, time::Duration};
+use std::{io::Error as IoError, path::Path, time::Duration};
 use tokio::{
     net::{UnixListener, UnixStream, unix::SocketAddr},
     time::Interval,
@@ -173,9 +173,8 @@ impl Server {
         }
     }
 
-    // NOTE-6a04fe
     #[tracing::instrument(err)]
-    pub async fn serve<P: AsRef<Path> + Debug>(config_filepath: Option<P>) -> Result<(), AnyhowError> {
+    pub async fn serve(config_filepath: Option<&Utf8Path>) -> Result<(), AnyhowError> {
         Self::new(config_filepath.map_as_ref())?.run().await.ok()
     }
 }

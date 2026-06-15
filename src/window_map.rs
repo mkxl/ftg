@@ -37,30 +37,11 @@ impl WindowMap {
             .await
     }
 
-    #[allow(dead_code)]
-    pub async fn on_tick_1(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
+    pub async fn on_tick(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
         self.window_map
             .values_mut()
             .stream()
             .then_collect(async |window| window.on_tick(config, buffer_map).await)
             .await
-    }
-
-    #[allow(dead_code)]
-    pub async fn on_tick_2(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
-        let mut window_outputs = Vec::new();
-
-        for window in self.window_map.values_mut() {
-            window
-                .on_tick(config, buffer_map)
-                .await
-                .push_to(window_outputs.ref_mut());
-        }
-
-        window_outputs
-    }
-
-    pub async fn on_tick(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
-        self.on_tick_2(config, buffer_map).await
     }
 }
