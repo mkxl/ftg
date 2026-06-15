@@ -3,19 +3,18 @@ use crate::{
     config::Config,
     window::{Window, WindowCrosstermEvent, WindowOutput},
 };
-use derive_more::Constructor;
 use mkutils::Utils;
 use std::collections::HashMap;
 use ulid::Ulid;
 
-#[derive(Constructor)]
+#[derive(Default)]
 pub struct WindowMap {
     window_map: HashMap<Ulid, Window>,
 }
 
 impl WindowMap {
-    pub fn empty() -> Self {
-        Self::new(HashMap::new())
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn get_mut(&mut self, window_id: &Ulid) -> Option<&mut Window> {
@@ -38,15 +37,30 @@ impl WindowMap {
             .await
     }
 
-    pub async fn on_tick(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
-        // NOTE-ff2f17: [StreamExt::then()] doesn't work here:
-        // [https://chatgpt.com/c/697fe763-fcb8-832f-ae90-59309bf933b0]
+    #[allow(dead_code)]
+    pub async fn on_tick_1(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
+        self.window_map
+            .values_mut()
+            .stream()
+            .then_collect(async |window| window.on_tick(config, buffer_map).await)
+            .await
+    }
+
+    #[allow(dead_code)]
+    pub async fn on_tick_2(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
         let mut window_outputs = Vec::new();
 
         for window in self.window_map.values_mut() {
-            window.on_tick(config, buffer_map).await.push_to(&mut window_outputs);
+            window
+                .on_tick(config, buffer_map)
+                .await
+                .push_to(window_outputs.ref_mut());
         }
 
         window_outputs
+    }
+
+    pub async fn on_tick(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
+        self.on_tick_2(config, buffer_map).await
     }
 }

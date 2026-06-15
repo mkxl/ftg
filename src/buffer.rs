@@ -9,14 +9,14 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    fn new(rope: Rope) -> Self {
+    fn from_rope(rope: Rope) -> Self {
         let buffer_id = Ulid::new();
 
         Self { buffer_id, rope }
     }
 
-    pub fn empty() -> Self {
-        Self::new(Rope::new())
+    pub fn new() -> Self {
+        Self::from_rope(Rope::new())
     }
 
     pub async fn from_filepath(filepath: &Utf8Path) -> Result<Self, IoError> {
@@ -26,7 +26,7 @@ impl Buffer {
             .buf_reader_async()
             .to_rope_async()
             .await?
-            .pipe_into(Self::new)
+            .pipe_into(Self::from_rope)
             .ok()
     }
 

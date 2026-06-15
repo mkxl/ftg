@@ -1,12 +1,11 @@
 use crate::buffer::Buffer;
 use anyhow::Error as AnyhowError;
 use camino::Utf8Path;
-use derive_more::Constructor;
 use mkutils::Utils;
 use std::{collections::HashMap, os::unix::fs::MetadataExt};
 use ulid::Ulid;
 
-#[derive(Constructor)]
+#[derive(Default)]
 pub struct BufferMap {
     buffer_map: HashMap<Ulid, Buffer>,
     buffer_id_from_inode: HashMap<u64, Ulid>,
@@ -16,8 +15,8 @@ impl BufferMap {
     const CONTEXT_GET_FILEPATH_METADATA: &str = "get filepath metadata";
     const CONTEXT_READ_FILEPATH_TEXT: &str = "read filepath text";
 
-    pub fn empty() -> Self {
-        Self::new(HashMap::new(), HashMap::new())
+    pub fn new() -> Self {
+        Self::default()
     }
 
     fn add_buffer(&mut self, inode: u64, buffer: Buffer) -> &mut Buffer {

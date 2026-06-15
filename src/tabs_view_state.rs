@@ -14,7 +14,7 @@ impl TabsViewState {
 
     pub fn new() -> Self {
         let scroll_view_state = Self::INITIAL_SCROLL_VIEW_STATE;
-        let view_state_set = ViewStateSet::empty();
+        let view_state_set = ViewStateSet::new();
 
         Self {
             scroll_view_state,
