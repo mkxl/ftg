@@ -17,12 +17,16 @@ pub struct View<'a> {
     config: &'a Config,
 }
 
-impl View<'_> {
+impl<'a> View<'a> {
     pub const fn buffer(&self) -> &Buffer {
         self.buffer
     }
 
     pub const fn view_state(&self) -> &ViewState {
+        self.view_state
+    }
+
+    pub const fn into_view_state(self) -> &'a mut ViewState {
         self.view_state
     }
 
@@ -147,6 +151,6 @@ impl ScrollView for View<'_> {
     }
 
     fn scroll_bar_style(&self) -> Style {
-        Style::default().fg(self.config.gutter_fg().into())
+        Style::default().fg(self.config.gutter_fg_rgb().into())
     }
 }

@@ -90,7 +90,7 @@ impl Server {
 
         for path in connect.paths {
             match self.get_or_insert_buffer_from_filepath(&path).await {
-                Ok(buffer_id) => window.add_new_view(buffer_id, path.some()),
+                Ok(buffer_id) => window.push(buffer_id, path.some()),
                 Err(error) => error.context(Self::CONTEXT_NEW_VIEW).log_error().mem_drop(),
             }
         }
