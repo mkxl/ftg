@@ -41,9 +41,9 @@ impl Server {
     fn new(config_filepath: Option<&Path>) -> Result<Self, AnyhowError> {
         let unix_listener = Self::get_unix_listener()?;
         let config = Self::get_config(config_filepath)?;
-        let buffer_map = BufferMap::empty();
+        let buffer_map = BufferMap::new();
         let tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
-        let window_map = WindowMap::empty();
+        let window_map = WindowMap::new();
         let server = Self {
             unix_listener,
             tick_interval,

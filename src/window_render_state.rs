@@ -196,7 +196,7 @@ impl WindowRenderState {
         terminal: &mut Terminal,
     ) -> Result<Vec<u8>, AnyhowError> {
         let mut default_view_state = ViewState::default();
-        let mut default_buffer = Buffer::empty();
+        let mut default_buffer = Buffer::new();
         let default_view = View::new(default_view_state.ref_mut(), default_buffer.ref_mut(), config);
         let mut title = Cow::<str>::default();
 

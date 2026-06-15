@@ -20,18 +20,15 @@ impl<'a> TabsView<'a> {
         tabs_view
     }
 
+    fn view_state_width(view_state: &ViewState) -> usize {
+        view_state.title().extended_graphemes().count()
+    }
+
     fn get_content_size(&self) -> PointUsize {
         let view_states = self.tabs_view_state.as_slice();
-        let height = view_states.len();
-        let width = view_states
-            .iter()
-            .map(ViewState::title)
-            .map(str::extended_graphemes)
-            .map(Iterator::count)
-            .max()
-            .unwrap_or_default();
+        let width = view_states.iter().map(Self::view_state_width).max().unwrap_or_default();
 
-        PointUsize::new(width, height)
+        PointUsize::new(width, view_states.len())
     }
 
     fn set_latest_content_size(&mut self) {

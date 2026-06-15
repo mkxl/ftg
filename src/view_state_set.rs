@@ -8,7 +8,7 @@ pub struct ViewStateSet {
 }
 
 impl ViewStateSet {
-    pub fn empty() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
