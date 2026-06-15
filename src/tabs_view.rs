@@ -47,9 +47,7 @@ impl ScrollView for TabsView<'_> {
         self.tabs_view_state.scroll_view_state_mut()
     }
 
-    fn render_content(&self, _frame: &mut Frame, _content_area: Rect) {
-        std::todo!()
-    }
+    fn render_content(&self, _frame: &mut Frame, _content_area: Rect) {}
 
     fn scroll_bar_style(&self) -> Style {
         Style::default().fg(self.config.gutter_fg_rgb().into())
