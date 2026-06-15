@@ -67,7 +67,8 @@ impl WindowRenderState {
             Constraint::Length(self.show_status_bar.into()),
         ]
         .layout_areas(Direction::Vertical, background);
-        let [tabs, view] = [Constraint::Length(Self::TABS_VIEW_WIDTH), Constraint::Fill(u16::ONE)]
+        let tabs_width = self.show_tabs.if_else(Self::TABS_VIEW_WIDTH, u16::ZERO);
+        let [tabs, view] = [Constraint::Length(tabs_width), Constraint::Fill(u16::ONE)]
             .layout_areas(Direction::Horizontal, non_status_bar_area);
 
         WindowAreaSet {
