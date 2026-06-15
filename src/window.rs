@@ -1,6 +1,6 @@
 use crate::{
-    buffer_map::BufferMap, command::Command, config::Config, draw_state::DrawState, view_state::ViewState,
-    view_state_set::ViewStateSet,
+    buffer_map::BufferMap, command::Command, config::Config, tabs_view_state::TabsViewState,
+    window_render_state::WindowRenderState,
 };
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
@@ -14,7 +14,7 @@ use ulid::Ulid;
 macro_rules! execute {
     ($self:expr, $buffer_map:expr, $config:expr, $method:ident $(, $args:expr)*) => {
         $self
-            .view_state_set
+            .tabs_view_state
             .active_view_mut($buffer_map, $config)?
             .as_mut()
             .map(|view| view.$method($($args),*))
@@ -37,11 +37,11 @@ pub struct WindowOutput {
 
 pub struct Window {
     window_id: Ulid,
-    view_state_set: ViewStateSet,
     socket: Socket,
     terminal: Terminal,
     key_map_state: KeyMapState<Command>,
-    draw_state: DrawState,
+    tabs_view_state: TabsViewState,
+    window_render_state: WindowRenderState,
 }
 
 impl Window {
@@ -49,17 +49,17 @@ impl Window {
 
     pub fn new(socket: Socket, screen_size: PointU16, key_map: &KeyMap<Command>) -> Result<Self, IoError> {
         let window_id = Ulid::new();
-        let view_state_set = ViewStateSet::empty();
         let terminal = Terminal::new(screen_size, Self::FORCE_TERMINAL_FULL_REDRAWS)?;
         let key_map_state = KeyMapState::new(key_map);
-        let draw_state = DrawState::default();
+        let tabs_view_state = TabsViewState::new();
+        let window_render_state = WindowRenderState::default();
         let window = Self {
             window_id,
-            view_state_set,
             socket,
             terminal,
             key_map_state,
-            draw_state,
+            tabs_view_state,
+            window_render_state,
         };
 
         window.ok()
@@ -69,12 +69,11 @@ impl Window {
         self.window_id
     }
 
-    pub fn add_new_view(&mut self, buffer_id: Ulid, filepath: Option<Utf8PathBuf>) {
-        let view_state = ViewState::new(buffer_id, filepath);
-
-        self.view_state_set.push(view_state);
+    pub fn push(&mut self, buffer_id: Ulid, filepath: Option<Utf8PathBuf>) {
+        self.tabs_view_state.push(buffer_id, filepath);
     }
 
+    #[expect(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn on_command(
         &mut self,
         config: &Config,
@@ -92,8 +91,11 @@ impl Window {
             Command::ScrollUp(count) => execute!(self, buffer_map, config, scroll_up, count),
             Command::ScrollDown(count) => execute!(self, buffer_map, config, scroll_down, count),
             Command::Delete => execute!(self, buffer_map, config, delete),
-            Command::ToggleStatusBar => self.draw_state.show_status_bar_mut().toggle().output_ok(),
-            Command::ToggleGutter => self.draw_state.show_gutter_mut().toggle().output_ok(),
+            Command::ToggleStatusBar => self.window_render_state.toggle_status_bar().output_ok(),
+            Command::ToggleGutter => self.window_render_state.toggle_gutter().output_ok(),
+            Command::ToggleTabs => self.window_render_state.toggle_tabs().output_ok(),
+            Command::NextTab => self.tabs_view_state.cycle_next().output_ok(),
+            Command::PrevTab => self.tabs_view_state.cycle_prev().output_ok(),
         }
     }
 
@@ -103,7 +105,7 @@ impl Window {
         config: &Config,
         key_event: KeyEvent,
     ) -> Output<(), AnyhowError> {
-        let Some(mut view) = self.view_state_set.active_view_mut(buffer_map, config)? else { return ().output_ok() };
+        let Some(mut view) = self.tabs_view_state.active_view_mut(buffer_map, config)? else { return ().output_ok() };
         let KeyCode::Char(character) = key_event.code else { return ().output_ok() };
 
         view.replace(&character.to_string());
@@ -119,7 +121,7 @@ impl Window {
     ) -> Output<(), AnyhowError> {
         tracing::info!(?key_event);
 
-        // TODO: resolve [command.clone()]
+        // TODO-9c5d7d: resolve [command.clone()]
         if let Some(command) = self.key_map_state.on_key_event(&config.key_map, key_event) {
             self.on_command(config, buffer_map, command.clone()).await
         } else {
@@ -133,7 +135,7 @@ impl Window {
         buffer_map: &mut BufferMap,
         config: &Config,
     ) -> Result<(), AnyhowError> {
-        let Some(mut active_view) = self.view_state_set.active_view_mut(buffer_map, config)? else {
+        let Some(mut active_view) = self.tabs_view_state.active_view_mut(buffer_map, config)? else {
             return ().ok();
         };
 
@@ -167,12 +169,18 @@ impl Window {
     }
 
     pub async fn on_tick_impl(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Output<(), AnyhowError> {
+        // TODO-9c5d7d
         if let Some(command) = self.key_map_state.on_tick(&config.key_map) {
             self.on_command(config, buffer_map, command.clone()).await?;
         }
 
-        self.draw_state
-            .draw(config, buffer_map, &mut self.view_state_set, &mut self.terminal)?
+        self.window_render_state
+            .draw(
+                config,
+                buffer_map,
+                self.tabs_view_state.ref_mut(),
+                self.terminal.ref_mut(),
+            )?
             .send_to(&mut self.socket)
             .await?;
 

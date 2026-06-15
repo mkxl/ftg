@@ -26,6 +26,7 @@ impl Region {
         Self::new(begin, self.len, self.is_forward)
     }
 
+    #[expect(dead_code)]
     pub fn translate(&mut self, count: isize) {
         self.translated(count).assign_to(self);
     }
@@ -36,6 +37,7 @@ impl Region {
         Self::new(self.begin, len, self.is_forward)
     }
 
+    #[expect(dead_code)]
     pub fn expand(&mut self, count: isize) {
         self.expanded(count).assign_to(self);
     }

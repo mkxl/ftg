@@ -12,13 +12,16 @@ pub struct ViewState {
 }
 
 impl ViewState {
+    pub const INITIAL_SCROLL_VIEW_STATE: ScrollViewState =
+        ScrollViewState::new(Self::SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT);
+
     const DEFAULT_TITLE: &'static str = "untitled";
     const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
-    const RENDER_SCROLL_BARS_TIMEOUT: Duration = Duration::from_secs(1);
+    const RENDER_SCROLL_BARS_TIMEOUT: Option<Duration> = Some(Duration::from_secs(1));
 
     pub fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
         let selections = Self::initial_selections();
-        let scroll_view_state = ScrollViewState::new(Self::SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT.some());
+        let scroll_view_state = Self::INITIAL_SCROLL_VIEW_STATE;
 
         Self {
             buffer_id,

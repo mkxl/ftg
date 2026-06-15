@@ -35,7 +35,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn gutter_fg(&self) -> Rgb {
+    pub fn gutter_fg_rgb(&self) -> Rgb {
         self.color_scheme.main.bg.lighten_fixed(self.theme.gutter_lighten)
     }
 }
