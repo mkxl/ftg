@@ -1,7 +1,7 @@
 use crate::{region::Region, selection::Selection};
 use camino::Utf8PathBuf;
 use mkutils::{ActiveVec, ScrollViewState, ScrollWhen, Utils};
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 use ulid::Ulid;
 
 pub struct ViewState {
@@ -12,12 +12,12 @@ pub struct ViewState {
 }
 
 impl ViewState {
-    pub const INITIAL_SCROLL_VIEW_STATE: ScrollViewState =
-        ScrollViewState::new(Self::SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT);
+    pub const DEFAULT_TITLE: &'static str = "untitled";
+    pub const RENDER_SCROLL_BARS_TIMEOUT: Option<Duration> = Some(Duration::from_secs(1));
 
-    const DEFAULT_TITLE: &'static str = "untitled";
     const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
-    const RENDER_SCROLL_BARS_TIMEOUT: Option<Duration> = Some(Duration::from_secs(1));
+    const INITIAL_SCROLL_VIEW_STATE: ScrollViewState =
+        ScrollViewState::new(Self::SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT);
 
     pub fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
         let selections = Self::initial_selections();
@@ -56,10 +56,16 @@ impl ViewState {
     }
 
     pub fn title(&self) -> &str {
-        if let Some(filepath) = &self.filepath {
-            filepath.file_name_or_self()
+        self.filepath
+            .as_ref()
+            .map_or(Self::DEFAULT_TITLE, Utf8PathBuf::file_name_or_self)
+    }
+
+    pub fn filepath_title(&self) -> Cow<'_, str> {
+        if let Some(filepath) = self.filepath.as_deref() {
+            filepath.unexpand_user().into_cow()
         } else {
-            Self::DEFAULT_TITLE
+            Self::DEFAULT_TITLE.to_cow_borrowed()
         }
     }
 

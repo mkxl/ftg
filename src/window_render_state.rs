@@ -2,7 +2,6 @@ use crate::{
     buffer::Buffer,
     buffer_map::BufferMap,
     config::{ColorSpec, Config},
-    tabs_view::TabsView,
     tabs_view_state::TabsViewState,
     view::View,
     view_state::ViewState,
@@ -15,15 +14,16 @@ use ratatui::{
     layout::{Constraint, Direction, Rect},
     style::{Styled, Stylize},
     text::Text,
-    widgets::Paragraph,
+    widgets::{Clear, Paragraph},
 };
 use std::borrow::Cow;
 
-struct WindowAreaSet {
-    background: Rect,
-    tabs: Rect,
-    view: Rect,
-    status_bar: Rect,
+#[derive(Default)]
+pub struct WindowAreaSet {
+    pub background: Rect,
+    pub tabs: Rect,
+    pub view: Rect,
+    pub status_bar: Rect,
 }
 
 struct ViewAreaSet {
@@ -41,13 +41,19 @@ pub struct WindowRenderState {
 
     #[default(Self::DEFAULT_SHOW_TABS)]
     show_tabs: bool,
+
+    latest_window_area_set: WindowAreaSet,
 }
 
 impl WindowRenderState {
-    const DEFAULT_SHOW_STATUS_BAR: bool = true;
     const DEFAULT_SHOW_GUTTER: bool = true;
+    const DEFAULT_SHOW_STATUS_BAR: bool = true;
     const DEFAULT_SHOW_TABS: bool = true;
-    const TABS_VIEW_WIDTH: u16 = 20;
+    const MAX_TABS_WIDTH_PERCENTAGE: u16 = 100;
+
+    pub const fn latest_window_area_set(&self) -> &WindowAreaSet {
+        &self.latest_window_area_set
+    }
 
     pub fn toggle_status_bar(&mut self) {
         self.show_status_bar.toggle();
@@ -61,13 +67,24 @@ impl WindowRenderState {
         self.show_tabs.toggle();
     }
 
-    fn get_window_area_set(&self, background: Rect) -> WindowAreaSet {
+    const fn get_tabs_width(&self, config: &Config, non_status_bar_area: Rect) -> u16 {
+        if self.show_tabs {
+            non_status_bar_area
+                .width
+                .saturating_mul(config.theme.tabs_width_percentage)
+                .saturating_div(Self::MAX_TABS_WIDTH_PERCENTAGE)
+        } else {
+            u16::ZERO
+        }
+    }
+
+    fn get_window_area_set(&self, config: &Config, background: Rect) -> WindowAreaSet {
         let [non_status_bar_area, status_bar] = [
             Constraint::Fill(u16::ONE),
             Constraint::Length(self.show_status_bar.into()),
         ]
         .layout_areas(Direction::Vertical, background);
-        let tabs_width = self.show_tabs.if_else(Self::TABS_VIEW_WIDTH, u16::ZERO);
+        let tabs_width = self.get_tabs_width(config, non_status_bar_area);
         let [tabs, view] = [Constraint::Length(tabs_width), Constraint::Fill(u16::ONE)]
             .layout_areas(Direction::Horizontal, non_status_bar_area);
 
@@ -86,6 +103,7 @@ impl WindowRenderState {
             gutter_padding = config.theme.gutter_padding,
         )
     }
+
     fn get_view_area_set(&self, config: &Config, view: &View, view_area: Rect) -> ViewAreaSet {
         let gutter_width = if self.show_gutter {
             Self::gutter_line_str(usize::ZERO, config, view.line_num_width())
@@ -103,16 +121,9 @@ impl WindowRenderState {
         ViewAreaSet { gutter, buffer }
     }
 
-    fn paragraph(color_spec: ColorSpec) -> Paragraph<'static> {
-        Paragraph::default().set_style(color_spec)
-    }
-
-    fn get_background(config: &Config) -> Paragraph<'static> {
-        Self::paragraph(config.color_scheme.main)
-    }
-
-    fn get_status_bar(config: &Config) -> Paragraph<'static> {
-        Self::paragraph(config.color_scheme.status_bar)
+    fn render_color_spec(color_spec: ColorSpec, frame: &mut Frame, area: Rect) {
+        Clear.render_to(frame, area);
+        Paragraph::default().set_style(color_spec).render_to(frame, area);
     }
 
     fn get_gutter(config: &Config, view: &View) -> Paragraph<'static> {
@@ -127,21 +138,21 @@ impl WindowRenderState {
             .range_from_len(view.buffer().size().y)
             .map(|line_num| Self::gutter_line_str(line_num, config, line_num_width).fg(gutter_fg_rgb))
             .collect::<Text>()
-            .pipe_into(Paragraph::new)
+            .into_paragraph()
     }
 
-    fn draw_window(
-        config: &Config,
-        tabs_view_state: &mut TabsViewState,
-        frame: &mut Frame,
-        window_area_set: &WindowAreaSet,
-    ) {
-        TabsView::new(config, tabs_view_state.ref_mut()).render(frame, window_area_set.tabs);
-        Self::get_background(config).render_to(frame, window_area_set.background);
-        Self::get_status_bar(config).render_to(frame, window_area_set.status_bar);
+    fn draw_window(&self, config: &Config, tabs_view_state: &mut TabsViewState, frame: &mut Frame) {
+        Self::render_color_spec(config.color_scheme.main, frame, self.latest_window_area_set.background);
+        tabs_view_state
+            .get_tabs_view(config)
+            .render(frame, self.latest_window_area_set.tabs);
+        Self::render_color_spec(
+            config.color_scheme.status_bar,
+            frame,
+            self.latest_window_area_set.status_bar,
+        );
     }
 
-    #[expect(clippy::too_many_arguments)]
     fn draw_view<'a>(
         &self,
         config: &'a Config,
@@ -150,12 +161,11 @@ impl WindowRenderState {
         default_view: View<'a>,
         title: &mut Cow<'a, str>,
         frame: &mut Frame,
-        view_area: Rect,
     ) -> Result<(), AnyhowError> {
         let mut view = tabs_view_state
             .active_view_mut(buffer_map, config)?
             .unwrap_or(default_view);
-        let view_area_set = self.get_view_area_set(config, &view, view_area);
+        let view_area_set = self.get_view_area_set(config, &view, self.latest_window_area_set.view);
 
         Self::get_gutter(config, &view).render_to(frame, view_area_set.gutter);
         view.render(frame, view_area_set.buffer);
@@ -165,7 +175,7 @@ impl WindowRenderState {
     }
 
     fn draw_impl<'a>(
-        &self,
+        &mut self,
         config: &'a Config,
         buffer_map: &'a mut BufferMap,
         tabs_view_state: &'a mut TabsViewState,
@@ -173,24 +183,16 @@ impl WindowRenderState {
         title: &mut Cow<'a, str>,
         frame: &mut Frame,
     ) -> Result<(), AnyhowError> {
-        let window_area_set = self.get_window_area_set(frame.area());
+        self.latest_window_area_set = self.get_window_area_set(config, frame.area());
 
-        Self::draw_window(config, tabs_view_state, frame, &window_area_set);
-        self.draw_view(
-            config,
-            buffer_map,
-            tabs_view_state,
-            default_view,
-            title,
-            frame,
-            window_area_set.view,
-        )?;
+        self.draw_window(config, tabs_view_state, frame);
+        self.draw_view(config, buffer_map, tabs_view_state, default_view, title, frame)?;
 
         ().ok()
     }
 
     pub fn draw(
-        &self,
+        &mut self,
         config: &Config,
         buffer_map: &mut BufferMap,
         tabs_view_state: &mut TabsViewState,

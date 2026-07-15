@@ -1,6 +1,7 @@
 use crate::{buffer::Buffer, config::Config, region::Region, selection::Selection, view_state::ViewState};
+use crossterm::event::MouseEvent;
 use derive_more::Constructor;
-use mkutils::{Interval, PointIsize, Rope, ScrollView, ScrollViewState, Utils};
+use mkutils::{Interval, PointIsize, PointUsize, Rope, ScrollView, ScrollViewState, Utils};
 use num::traits::{ConstOne, ConstZero};
 use ratatui::{
     Frame,
@@ -18,6 +19,8 @@ pub struct View<'a> {
 }
 
 impl<'a> View<'a> {
+    const SCROLL_COUNT: PointUsize = PointUsize::new(usize::ONE, usize::ONE);
+
     pub const fn buffer(&self) -> &Buffer {
         self.buffer
     }
@@ -99,20 +102,8 @@ impl<'a> View<'a> {
         self.buffer.size().y.ilog10().incremented().cast_or_max()
     }
 
-    pub fn scroll_left(&mut self, count: usize) {
-        self.scroll_view_state_mut().scroll_left(count);
-    }
-
-    pub fn scroll_right(&mut self, count: usize) {
-        self.scroll_view_state_mut().scroll_right(count);
-    }
-
-    pub fn scroll_up(&mut self, count: usize) {
-        self.scroll_view_state_mut().scroll_up(count);
-    }
-
-    pub fn scroll_down(&mut self, count: usize) {
-        self.scroll_view_state_mut().scroll_down(count);
+    pub fn on_mouse_event(&mut self, mouse_event: MouseEvent) {
+        self.on_scroll(mouse_event.kind, Self::SCROLL_COUNT);
     }
 }
 

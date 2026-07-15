@@ -12,6 +12,10 @@ impl ViewStateSet {
         Self::default()
     }
 
+    pub fn active_index(&self) -> Option<usize> {
+        self.view_states.as_ref()?.active_index().some()
+    }
+
     pub fn active_view_mut<'a>(
         &'a mut self,
         buffer_map: &'a mut BufferMap,

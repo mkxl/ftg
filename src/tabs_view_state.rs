@@ -1,7 +1,11 @@
-use crate::{buffer_map::BufferMap, config::Config, view::View, view_state::ViewState, view_state_set::ViewStateSet};
+use crate::{
+    buffer_map::BufferMap, config::Config, tabs_view::TabsView, view::View, view_state::ViewState,
+    view_state_set::ViewStateSet,
+};
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
-use mkutils::{ScrollViewState, Utils};
+use mkutils::{ScrollViewState, ScrollWhen, Utils};
+use std::time::Duration;
 use ulid::Ulid;
 
 pub struct TabsViewState {
@@ -10,7 +14,10 @@ pub struct TabsViewState {
 }
 
 impl TabsViewState {
-    const INITIAL_SCROLL_VIEW_STATE: ScrollViewState = ViewState::INITIAL_SCROLL_VIEW_STATE;
+    const SCROLL_WHEN: ScrollWhen = ScrollWhen::ForLargeContent;
+    const RENDER_SCROLL_BARS_TIMEOUT: Option<Duration> = ViewState::RENDER_SCROLL_BARS_TIMEOUT;
+    const INITIAL_SCROLL_VIEW_STATE: ScrollViewState =
+        ScrollViewState::new(Self::SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT);
 
     pub fn new() -> Self {
         let scroll_view_state = Self::INITIAL_SCROLL_VIEW_STATE;
@@ -20,6 +27,10 @@ impl TabsViewState {
             scroll_view_state,
             view_state_set,
         }
+    }
+
+    pub fn active_index(&self) -> Option<usize> {
+        self.view_state_set.active_index()
     }
 
     pub fn as_slice(&self) -> &[ViewState] {
@@ -54,5 +65,9 @@ impl TabsViewState {
 
     pub fn cycle_prev(&mut self) {
         self.view_state_set.cycle_prev();
+    }
+
+    pub fn get_tabs_view<'a>(&'a mut self, config: &'a Config) -> TabsView<'a> {
+        TabsView::new(config, self)
     }
 }

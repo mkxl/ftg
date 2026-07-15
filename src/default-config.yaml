@@ -5,10 +5,26 @@ color_scheme:
   status_bar:
     fg: "#2A2A2A"
     bg: "#505050"
+  tabs:
+    active:
+      tab:
+        fg: "#D7DAE0"
+        bg: "#2B303A"
+      filepath:
+        fg: "#858B96"
+        bg: "#2B303A"
+    inactive:
+      tab:
+        fg: "#B7B9BC"
+        bg: "#22262E"
+      filepath:
+        fg: "#666A73"
+        bg: "#22262E"
 
 theme:
   gutter_lighten: 0.25
   gutter_padding: 3
+  tabs_width_percentage: 25
 
 key_map:
   - keys: [ctrl+q]
