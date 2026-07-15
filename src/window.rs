@@ -4,10 +4,9 @@ use crate::{
 };
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
-use crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
+use crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, MouseEvent};
 use derive_more::Constructor;
-use mkutils::{KeyMap, KeyMapState, Output, PointU16, Socket, Terminal, Utils};
-use num::traits::ConstOne;
+use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Terminal, Utils};
 use std::io::Error as IoError;
 use ulid::Ulid;
 
@@ -135,16 +134,15 @@ impl Window {
         buffer_map: &mut BufferMap,
         config: &Config,
     ) -> Result<(), AnyhowError> {
-        let Some(mut active_view) = self.tabs_view_state.active_view_mut(buffer_map, config)? else {
-            return ().ok();
-        };
+        let position = (mouse_event.column, mouse_event.row).into();
+        let latest_window_area_set = self.window_render_state.latest_window_area_set();
 
-        match mouse_event.kind {
-            MouseEventKind::ScrollLeft => active_view.scroll_left(usize::ONE),
-            MouseEventKind::ScrollRight => active_view.scroll_right(usize::ONE),
-            MouseEventKind::ScrollUp => active_view.scroll_up(usize::ONE),
-            MouseEventKind::ScrollDown => active_view.scroll_down(usize::ONE),
-            _ignored_mouse_event_kind => {}
+        if latest_window_area_set.tabs.contains(position) {
+            self.tabs_view_state.get_tabs_view(config).on_mouse_event(mouse_event);
+        } else if latest_window_area_set.view.contains(position)
+            && let Some(mut active_view) = self.tabs_view_state.active_view_mut(buffer_map, config)?
+        {
+            active_view.on_mouse_event(mouse_event);
         }
 
         ().ok()
