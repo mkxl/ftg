@@ -52,6 +52,7 @@ pub struct Config {
     pub color_scheme: ColorScheme,
     pub theme: Theme,
     pub key_map: KeyMap<Command>,
+    pub max_concurrency: usize,
 }
 
 impl Config {

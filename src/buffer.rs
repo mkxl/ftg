@@ -1,3 +1,4 @@
+use anyhow::Error as AnyhowError;
 use camino::Utf8Path;
 use mkutils::{PointUsize, Rope, Utils};
 use std::io::Error as IoError;
@@ -9,6 +10,8 @@ pub struct Buffer {
 }
 
 impl Buffer {
+    const CONTEXT_READ_FILEPATH_TEXT: &str = "read filepath text";
+
     fn from_rope(rope: Rope) -> Self {
         let buffer_id = Ulid::new();
 
@@ -19,15 +22,15 @@ impl Buffer {
         Self::from_rope(Rope::new())
     }
 
-    pub async fn from_filepath(filepath: &Utf8Path) -> Result<Self, IoError> {
-        filepath
-            .open_async()
-            .await?
-            .buf_reader_async()
-            .to_rope_async()
-            .await?
-            .pipe_into(Self::from_rope)
-            .ok()
+    async fn rope_from_filepath_impl(filepath: &Utf8Path) -> Result<Rope, IoError> {
+        filepath.open_async().await?.buf_reader_async().to_rope_async().await
+    }
+
+    // TODO: use the mkutils context attribute macro here
+    pub async fn rope_from_filepath(filepath: &Utf8Path) -> Result<Rope, AnyhowError> {
+        Self::rope_from_filepath_impl(filepath)
+            .await
+            .context_path(Self::CONTEXT_READ_FILEPATH_TEXT, filepath)
     }
 
     pub const fn buffer_id(&self) -> Ulid {
@@ -48,5 +51,9 @@ impl Buffer {
         size.y.increment();
 
         size
+    }
+
+    pub fn set_rope(&mut self, rope: Rope) {
+        self.rope = rope;
     }
 }

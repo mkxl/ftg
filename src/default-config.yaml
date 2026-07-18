@@ -76,3 +76,5 @@ key_map:
   - keys: [alt+l]
     binding:
       command: next_tab
+
+max_concurrency: 64

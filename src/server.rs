@@ -1,20 +1,29 @@
 use crate::{
+    buffer::Buffer,
     buffer_map::BufferMap,
     config::Config,
-    window::{Window, WindowCrosstermEvent},
+    window::{Window, WindowCrosstermEvent, WindowOutput},
     window_map::WindowMap,
 };
 use anyhow::{Context, Error as AnyhowError};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
-use mkutils::{Output, PointU16, Screen, Socket, Utils};
+use mkutils::{Output, PointU16, Rope, Screen, Socket, Utils};
 use serde::{Deserialize, Serialize};
-use std::{io::Error as IoError, path::Path, time::Duration};
+use std::{future::Future, io::Error as IoError, path::Path, pin::Pin, time::Duration};
 use tokio::{
     net::{UnixListener, UnixStream, unix::SocketAddr},
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    task::{JoinError, JoinSet},
     time::Interval,
 };
 use ulid::Ulid;
+
+enum Operation {
+    InitializeBuffer { buffer_id: Ulid, rope: Rope },
+}
+
+type OperationFuture = Pin<Box<dyn 'static + Future<Output = Result<Operation, AnyhowError>> + Send + Sync>>;
 
 #[derive(Args, Default, Deserialize, Serialize)]
 pub struct Connect {
@@ -30,6 +39,11 @@ pub struct Server {
     config: Config,
     buffer_map: BufferMap,
     window_map: WindowMap,
+    operation_future_sender: UnboundedSender<OperationFuture>,
+    operation_future_receiver: UnboundedReceiver<OperationFuture>,
+    join_set: JoinSet<Result<Operation, AnyhowError>>,
+    operation_sender: UnboundedSender<Operation>,
+    operation_receiver: UnboundedReceiver<Operation>,
 }
 
 impl Server {
@@ -44,12 +58,20 @@ impl Server {
         let buffer_map = BufferMap::new();
         let tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
         let window_map = WindowMap::new();
+        let (operation_future_sender, operation_future_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let join_set = JoinSet::new();
+        let (operation_sender, operation_receiver) = tokio::sync::mpsc::unbounded_channel();
         let server = Self {
             unix_listener,
             tick_interval,
             config,
             buffer_map,
             window_map,
+            operation_future_sender,
+            operation_future_receiver,
+            join_set,
+            operation_sender,
+            operation_receiver,
         };
 
         server.ok()
@@ -81,8 +103,23 @@ impl Server {
         .ok()
     }
 
+    async fn initialize_buffer(buffer_id: Ulid, filepath: Utf8PathBuf) -> Result<Operation, AnyhowError> {
+        let rope = Buffer::rope_from_filepath(&filepath).await?;
+        let operation = Operation::InitializeBuffer { buffer_id, rope };
+
+        operation.ok()
+    }
+
     async fn get_or_insert_buffer_from_filepath(&mut self, filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
-        self.buffer_map.get_or_insert_from_filepath(filepath).await
+        let (buffer_id, should_create_buffer) = self.buffer_map.get_or_insert_from_filepath(filepath).await?;
+
+        if should_create_buffer {
+            let operation_future = Self::initialize_buffer(buffer_id, filepath.to_owned());
+
+            self.operation_future_sender.send(operation_future.pin())?;
+        }
+
+        buffer_id.ok()
     }
 
     async fn new_window(&mut self, socket: Socket, connect: Connect) -> Result<Window, IoError> {
@@ -143,13 +180,36 @@ impl Server {
         ().ok()
     }
 
+    fn on_window_output(&mut self, window_output: WindowOutput) {
+        let Some(anyhow_res) = window_output.output.into_end() else { return };
+
+        self.close_window(&window_output.window_id, anyhow_res);
+    }
+
     async fn on_tick(&mut self) {
-        let window_outputs = self.window_map.on_tick(&self.config, &mut self.buffer_map).await;
+        self.window_map
+            .on_tick(&self.config, &mut self.buffer_map)
+            .await
+            .into_iter()
+            .for_each(|window_output| self.on_window_output(window_output));
+    }
 
-        for window_output in window_outputs {
-            let Some(anyhow_res) = window_output.output.into_end() else { continue };
+    fn on_operation_future(&mut self, operation_future_opt: Option<OperationFuture>) -> Result<(), AnyhowError> {
+        self.join_set.spawn(operation_future_opt.check_next()?).unit().ok()
+    }
 
-            self.close_window(&window_output.window_id, anyhow_res);
+    fn on_operation(
+        &self,
+        operation_res_res: Result<Result<Operation, AnyhowError>, JoinError>,
+    ) -> Result<(), AnyhowError> {
+        self.operation_sender.send(operation_res_res??)?.ok()
+    }
+
+    fn complete_operation(&mut self, operation_opt: Option<Operation>) -> Result<(), AnyhowError> {
+        match operation_opt.check_next()? {
+            Operation::InitializeBuffer { buffer_id, rope } => {
+                self.buffer_map.get_mut(&buffer_id).check_present()?.set_rope(rope).ok()
+            }
         }
     }
 
@@ -160,6 +220,9 @@ impl Server {
                 self.on_window_crossterm_event(window_crossterm_event).await
             },
             _instant = self.tick_interval.tick() => self.on_tick().await.ok(),
+            operation_future_opt = self.operation_future_receiver.recv(), if self.join_set.len() < self.config.max_concurrency => self.on_operation_future(operation_future_opt),
+            operation_res_res = self.join_set.join_next().wait_then_unwrap_or_pending() => self.on_operation(operation_res_res),
+            operation_opt = self.operation_receiver.recv() => self.complete_operation(operation_opt)
         }
     }
 
