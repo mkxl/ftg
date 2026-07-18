@@ -13,7 +13,6 @@ pub struct BufferMap {
 
 impl BufferMap {
     const CONTEXT_GET_FILEPATH_METADATA: &str = "get filepath metadata";
-    const CONTEXT_READ_FILEPATH_TEXT: &str = "read filepath text";
 
     pub fn new() -> Self {
         Self::default()
@@ -35,22 +34,18 @@ impl BufferMap {
         self.buffer_map.get_mut(buffer_id)
     }
 
-    pub async fn get_or_insert_from_filepath(&mut self, filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
+    pub async fn get_or_insert_from_filepath(&mut self, filepath: &Utf8Path) -> Result<(Ulid, bool), AnyhowError> {
         let inode = filepath
             .metadata_async()
             .await
             .context_path(Self::CONTEXT_GET_FILEPATH_METADATA, filepath)?
             .ino();
-        let buffer = if let Some(buffer_id) = self.buffer_id_from_inode.get(&inode) {
-            self.get(buffer_id).check_present()?
+        let (buffer, should_create_buffer) = if let Some(buffer_id) = self.buffer_id_from_inode.get(&inode) {
+            self.get(buffer_id).check_present()?.pair(false)
         } else {
-            let buffer = Buffer::from_filepath(filepath)
-                .await
-                .context_path(Self::CONTEXT_READ_FILEPATH_TEXT, filepath)?;
-
-            self.add_buffer(inode, buffer)
+            self.add_buffer(inode, Buffer::new()).as_immut().pair(true)
         };
 
-        buffer.buffer_id().ok()
+        buffer.buffer_id().pair(should_create_buffer).ok()
     }
 }
