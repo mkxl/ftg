@@ -22,14 +22,19 @@ enum CliCommand {
 pub struct CliArgs {
     #[arg(long = "config-file")]
     config_filepath: Option<Utf8PathBuf>,
+
     #[arg(long = "tracing-file")]
     tracing_filepath: Option<Utf8PathBuf>,
+
     #[arg(long = "tokio-console")]
     tokio_console_enabled: bool,
+
     #[arg(default_value_t = Tracing::DEFAULT_TOKIO_CONSOLE_PORT, long = "tokio-console-port")]
     tokio_console_port: u16,
+
     #[command(subcommand)]
     cli_command: Option<CliCommand>,
+
     #[command(flatten)]
     connect: Connect,
 }

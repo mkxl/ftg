@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
     layout::Rect,
     style::{Style, Styled},
-    widgets::Block,
+    widgets::{Block, BorderType},
 };
 
 pub struct TabsView<'a> {
@@ -95,10 +95,11 @@ impl ScrollView for TabsView<'_> {
                 .extended_grapheme_substring(scroll_offset.x..)
                 .into_line()
                 .set_style(tab_color_scheme.filepath);
+            let tab_block = Block::bordered().border_type(BorderType::Rounded);
             let tab = std::vec![title_line, filepath_title_line]
                 .into_paragraph()
                 .set_style(tab_color_scheme.tab)
-                .block(Block::bordered());
+                .block(tab_block);
 
             tab.render_to(frame, tab_area);
         }

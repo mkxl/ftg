@@ -42,19 +42,19 @@ key_map:
   - keys: [down]
     binding:
       command: move_down
-  - keys: [alt+j]
+  - keys: [shift+alt+left]
     binding:
       command: scroll_left
       args: 5
-  - keys: [alt+l]
+  - keys: [shift+alt+right]
     binding:
       command: scroll_right
       args: 5
-  - keys: [alt+i]
+  - keys: [shift+alt+up]
     binding:
       command: scroll_up
       args: 5
-  - keys: [alt+k]
+  - keys: [shift+alt+down]
     binding:
       command: scroll_down
       args: 5
@@ -70,10 +70,10 @@ key_map:
   - keys: [alt+t]
     binding:
       command: toggle_tabs
-  - keys: [alt+j]
+  - keys: [alt+i]
     binding:
       command: prev_tab
-  - keys: [alt+l]
+  - keys: [alt+k]
     binding:
       command: next_tab
 
