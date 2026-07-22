@@ -53,8 +53,8 @@ impl TabsViewState {
         self.view_state_set.active_view_mut(buffer_map, config)
     }
 
-    pub fn push(&mut self, buffer_id: Ulid, filepath: Option<Utf8PathBuf>) {
-        let view_state = ViewState::new(buffer_id, filepath);
+    pub fn push(&mut self, buffer_id: Ulid, absolute_filepath: Option<Utf8PathBuf>) {
+        let view_state = ViewState::new(buffer_id, absolute_filepath);
 
         self.view_state_set.push(view_state);
     }

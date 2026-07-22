@@ -27,7 +27,8 @@ type OperationFuture = Pin<Box<dyn 'static + Future<Output = Result<Operation, A
 
 #[derive(Args, Default, Deserialize, Serialize)]
 pub struct Connect {
-    paths: Vec<Utf8PathBuf>,
+    #[arg(value_name = "path", value_parser = Utils::absolute_utf8_path_buf)]
+    absolute_paths: Vec<Utf8PathBuf>,
 
     #[arg(skip = Screen::size().unwrap())]
     size: PointU16,
@@ -41,7 +42,7 @@ pub struct Server {
     window_map: WindowMap,
     operation_future_sender: UnboundedSender<OperationFuture>,
     operation_future_receiver: UnboundedReceiver<OperationFuture>,
-    join_set: JoinSet<Result<Operation, AnyhowError>>,
+    operation_join_set: JoinSet<Result<Operation, AnyhowError>>,
     operation_sender: UnboundedSender<Operation>,
     operation_receiver: UnboundedReceiver<Operation>,
 }
@@ -59,7 +60,7 @@ impl Server {
         let tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
         let window_map = WindowMap::new();
         let (operation_future_sender, operation_future_receiver) = tokio::sync::mpsc::unbounded_channel();
-        let join_set = JoinSet::new();
+        let operation_join_set = JoinSet::new();
         let (operation_sender, operation_receiver) = tokio::sync::mpsc::unbounded_channel();
         let server = Self {
             unix_listener,
@@ -69,7 +70,7 @@ impl Server {
             window_map,
             operation_future_sender,
             operation_future_receiver,
-            join_set,
+            operation_join_set,
             operation_sender,
             operation_receiver,
         };
@@ -103,18 +104,18 @@ impl Server {
         .ok()
     }
 
-    async fn initialize_buffer(buffer_id: Ulid, filepath: Utf8PathBuf) -> Result<Operation, AnyhowError> {
-        let rope = Buffer::rope_from_filepath(&filepath).await?;
+    async fn initialize_buffer(buffer_id: Ulid, absolute_filepath: Utf8PathBuf) -> Result<Operation, AnyhowError> {
+        let rope = Buffer::rope_from_filepath(&absolute_filepath).await?;
         let operation = Operation::InitializeBuffer { buffer_id, rope };
 
         operation.ok()
     }
 
-    async fn get_or_insert_buffer_from_filepath(&mut self, filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
-        let (buffer_id, should_create_buffer) = self.buffer_map.get_or_insert_from_filepath(filepath).await?;
+    async fn get_or_insert_buffer_from_filepath(&mut self, absolute_filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
+        let (buffer_id, should_create_buffer) = self.buffer_map.get_or_insert_from_filepath(absolute_filepath).await?;
 
         if should_create_buffer {
-            let operation_future = Self::initialize_buffer(buffer_id, filepath.to_owned());
+            let operation_future = Self::initialize_buffer(buffer_id, absolute_filepath.to_owned());
 
             self.operation_future_sender.send(operation_future.pin())?;
         }
@@ -125,9 +126,9 @@ impl Server {
     async fn new_window(&mut self, socket: Socket, connect: Connect) -> Result<Window, IoError> {
         let mut window = Window::new(socket, connect.size, &self.config.key_map)?;
 
-        for path in connect.paths {
-            match self.get_or_insert_buffer_from_filepath(&path).await {
-                Ok(buffer_id) => window.push(buffer_id, path.some()),
+        for absolute_path in connect.absolute_paths {
+            match self.get_or_insert_buffer_from_filepath(&absolute_path).await {
+                Ok(buffer_id) => window.push(buffer_id, absolute_path.some()),
                 Err(error) => error.context(Self::CONTEXT_NEW_VIEW).log_error().mem_drop(),
             }
         }
@@ -167,7 +168,7 @@ impl Server {
         let anyhow_output = match window_crossterm_event.crossterm_event {
             Output::Ok(crossterm_event) => {
                 window
-                    .on_crossterm_event(&self.config, &mut self.buffer_map, crossterm_event)
+                    .on_crossterm_event(&self.config, self.buffer_map.ref_mut(), crossterm_event)
                     .await
             }
             Output::EndOk => Output::EndOk,
@@ -188,14 +189,17 @@ impl Server {
 
     async fn on_tick(&mut self) {
         self.window_map
-            .on_tick(&self.config, &mut self.buffer_map)
+            .on_tick(&self.config, self.buffer_map.ref_mut())
             .await
             .into_iter()
             .for_each(|window_output| self.on_window_output(window_output));
     }
 
     fn on_operation_future(&mut self, operation_future_opt: Option<OperationFuture>) -> Result<(), AnyhowError> {
-        self.join_set.spawn(operation_future_opt.check_next()?).unit().ok()
+        self.operation_join_set
+            .spawn(operation_future_opt.check_next()?)
+            .unit()
+            .ok()
     }
 
     fn on_operation(
@@ -220,8 +224,8 @@ impl Server {
                 self.on_window_crossterm_event(window_crossterm_event).await
             },
             _instant = self.tick_interval.tick() => self.on_tick().await.ok(),
-            operation_future_opt = self.operation_future_receiver.recv(), if self.join_set.len() < self.config.max_concurrency => self.on_operation_future(operation_future_opt),
-            operation_res_res = self.join_set.join_next().wait_then_unwrap_or_pending() => self.on_operation(operation_res_res),
+            operation_future_opt = self.operation_future_receiver.recv(), if self.operation_join_set.len() < self.config.max_concurrency => self.on_operation_future(operation_future_opt),
+            operation_res_res = self.operation_join_set.join_next().wait_then_unwrap_or_pending() => self.on_operation(operation_res_res),
             operation_opt = self.operation_receiver.recv() => self.complete_operation(operation_opt)
         }
     }

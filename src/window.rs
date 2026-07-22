@@ -68,8 +68,8 @@ impl Window {
         self.window_id
     }
 
-    pub fn push(&mut self, buffer_id: Ulid, filepath: Option<Utf8PathBuf>) {
-        self.tabs_view_state.push(buffer_id, filepath);
+    pub fn push(&mut self, buffer_id: Ulid, absolute_filepath: Option<Utf8PathBuf>) {
+        self.tabs_view_state.push(buffer_id, absolute_filepath);
     }
 
     #[expect(clippy::unused_async, clippy::unused_async_trait_impl)]

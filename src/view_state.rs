@@ -6,7 +6,7 @@ use ulid::Ulid;
 
 pub struct ViewState {
     buffer_id: Ulid,
-    filepath: Option<Utf8PathBuf>,
+    absolute_filepath: Option<Utf8PathBuf>,
     selections: ActiveVec<Selection>,
     scroll_view_state: ScrollViewState,
 }
@@ -19,13 +19,13 @@ impl ViewState {
     const INITIAL_SCROLL_VIEW_STATE: ScrollViewState =
         ScrollViewState::new(Self::SCROLL_WHEN, Self::RENDER_SCROLL_BARS_TIMEOUT);
 
-    pub fn new(buffer_id: Ulid, filepath: Option<Utf8PathBuf>) -> Self {
+    pub fn new(buffer_id: Ulid, absolute_filepath: Option<Utf8PathBuf>) -> Self {
         let selections = Self::initial_selections();
         let scroll_view_state = Self::INITIAL_SCROLL_VIEW_STATE;
 
         Self {
             buffer_id,
-            filepath,
+            absolute_filepath,
             selections,
             scroll_view_state,
         }
@@ -56,17 +56,17 @@ impl ViewState {
     }
 
     pub fn title(&self) -> &str {
-        self.filepath
+        self.absolute_filepath
             .as_ref()
             .map_or(Self::DEFAULT_TITLE, Utf8PathBuf::file_name_or_self)
     }
 
     pub fn filepath_title(&self) -> Cow<'_, str> {
-        if let Some(filepath) = self.filepath.as_deref() {
-            filepath.unexpand_user().into_cow()
-        } else {
-            Self::DEFAULT_TITLE.to_cow_borrowed()
-        }
+        let Some(absolute_filepath) = self.absolute_filepath.as_deref() else {
+            return Self::DEFAULT_TITLE.to_cow_borrowed();
+        };
+
+        absolute_filepath.unexpand_user().into_cow()
     }
 
     pub fn set_active_selection(&mut self, new_active_selection: Selection) {
