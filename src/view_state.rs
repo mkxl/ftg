@@ -62,11 +62,11 @@ impl ViewState {
     }
 
     pub fn filepath_title(&self) -> Cow<'_, str> {
-        let Some(absolute_filepath) = self.absolute_filepath.as_deref() else {
-            return Self::DEFAULT_TITLE.to_cow_borrowed();
-        };
-
-        absolute_filepath.unexpand_user().into_cow()
+        if let Some(absolute_filepath) = self.absolute_filepath.as_deref() {
+            absolute_filepath.unexpand_user().into_cow()
+        } else {
+            Self::DEFAULT_TITLE.to_cow_borrowed();
+        }
     }
 
     pub fn set_active_selection(&mut self, new_active_selection: Selection) {

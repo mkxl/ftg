@@ -41,6 +41,7 @@ pub struct CliArgs {
 
 impl CliArgs {
     const TRACING_JSON_ENABLED: bool = true;
+    const TRACING_LIMIT: usize = 1_000;
 
     fn init_tracing<W: 'static + for<'a> MakeWriter<'a> + Send + Sync>(&self, writer: W) {
         Tracing::default()
@@ -49,6 +50,10 @@ impl CliArgs {
             .with_tokio_console_enabled(self.tokio_console_enabled)
             .with_writer(writer)
             .init();
+    }
+
+    fn init_server_tracing<W: 'static + for<'a> MakeWriter<'a> + Send + Sync>(&self, writer: W, tracing_store: TracingStore) {
+        writer.and(tracing_store).pipe_into_method(self, Self::init_tracing)
     }
 
     async fn connect(self, connect: Connect) -> Result<(), AnyhowError> {
@@ -60,13 +65,15 @@ impl CliArgs {
     }
 
     async fn serve(&self) -> Result<(), AnyhowError> {
+        let [tracing_store_writer, tracing_store_reader] = TracingStore::new(Self::TRACING_LIMIT).repeated();
+
         if let Some(tracing_filepath) = &self.tracing_filepath {
-            self.init_tracing(tracing_filepath.create()?);
+            self.init_server_tracing(tracing_filepath.create()?, tracing_store_writer);
         } else {
-            self.init_tracing(Tracing::default_writer);
+            self.init_server_tracing(Tracing::default_writer, tracing_store_writer);
         }
 
-        Server::serve(self.config_filepath.as_deref()).await
+        Server::serve(self.config_filepath.as_deref(), tracing_store_reader).await
     }
 
     fn take_cli_command(&mut self) -> CliCommand {

@@ -24,6 +24,7 @@ pub struct WindowAreaSet {
     pub tabs: Rect,
     pub view: Rect,
     pub status_bar: Rect,
+    pub logs: Rect,
 }
 
 struct ViewAreaSet {
@@ -42,6 +43,9 @@ pub struct WindowRenderState {
     #[default(Self::DEFAULT_SHOW_TABS)]
     show_tabs: bool,
 
+    #[default(Self::DEFAULT_SHOW_LOGS)]
+    show_logs: bool,
+
     latest_window_area_set: WindowAreaSet,
 }
 
@@ -49,7 +53,7 @@ impl WindowRenderState {
     const DEFAULT_SHOW_GUTTER: bool = true;
     const DEFAULT_SHOW_STATUS_BAR: bool = true;
     const DEFAULT_SHOW_TABS: bool = true;
-    const MAX_TABS_WIDTH_PERCENTAGE: u16 = 100;
+    const MAX_PERCENTAGE: u8 = 100;
 
     pub const fn latest_window_area_set(&self) -> &WindowAreaSet {
         &self.latest_window_area_set
@@ -67,15 +71,23 @@ impl WindowRenderState {
         self.show_tabs.toggle();
     }
 
+    pub fn toggle_logs(&mut self) {
+        self.show_logs.toggle();
+    }
+
     const fn get_tabs_width(&self, config: &Config, non_status_bar_area: Rect) -> u16 {
         if self.show_tabs {
             non_status_bar_area
                 .width
                 .saturating_mul(config.theme.tabs_width_percentage)
-                .saturating_div(Self::MAX_TABS_WIDTH_PERCENTAGE)
+                .saturating_div(Self::MAX_PERCENTAGE)
         } else {
             u16::ZERO
         }
+    }
+
+    fn as_ratio(percentage: u8) -> Constraint {
+        std::todo!()
     }
 
     fn get_window_area_set(&self, config: &Config, background: Rect) -> WindowAreaSet {
@@ -87,12 +99,15 @@ impl WindowRenderState {
         let tabs_width = self.get_tabs_width(config, non_status_bar_area);
         let [tabs, view] = [Constraint::Length(tabs_width), Constraint::Fill(u16::ONE)]
             .layout_areas(Direction::Horizontal, non_status_bar_area);
+        let [logs_horizontal_constraint, logs_vertical_constraint] = config.logs_view_percentage.pipe_into(Self::as_ratio).repeated();
+        let logs = background.centered(logs_horizontal_constraint, logs_vertical_constraint);
 
         WindowAreaSet {
             background,
             tabs,
             view,
             status_bar,
+            logs,
         }
     }
 

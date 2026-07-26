@@ -44,7 +44,8 @@ pub struct ColorScheme {
 pub struct Theme {
     pub gutter_lighten: f32,
     pub gutter_padding: usize,
-    pub tabs_width_percentage: u16,
+    pub tabs_width_percentage: u8,
+    pub logs_view_percentage: u8,
 }
 
 #[derive(Deserialize)]

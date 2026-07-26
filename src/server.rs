@@ -8,7 +8,7 @@ use crate::{
 use anyhow::{Context, Error as AnyhowError};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
-use mkutils::{Output, PointU16, Rope, Screen, Socket, Utils};
+use mkutils::{Output, PointU16, Rope, Screen, Socket, Utils, TracingStore};
 use serde::{Deserialize, Serialize};
 use std::{future::Future, io::Error as IoError, path::Path, pin::Pin, time::Duration};
 use tokio::{
@@ -35,6 +35,7 @@ pub struct Connect {
 }
 
 pub struct Server {
+    tracing_store: TracingStore,
     unix_listener: UnixListener,
     tick_interval: Interval,
     config: Config,
@@ -53,7 +54,7 @@ impl Server {
     const DEFAULT_CONFIG_YAML_STR: &str = std::include_str!("default-config.yaml");
     const TICK_PERIOD_DURATION: Duration = Duration::from_millis(15);
 
-    fn new(config_filepath: Option<&Path>) -> Result<Self, AnyhowError> {
+    fn new(config_filepath: Option<&Path>, tracing_store: TracingStore) -> Result<Self, AnyhowError> {
         let unix_listener = Self::get_unix_listener()?;
         let config = Self::get_config(config_filepath)?;
         let buffer_map = BufferMap::new();
@@ -63,6 +64,7 @@ impl Server {
         let operation_join_set = JoinSet::new();
         let (operation_sender, operation_receiver) = tokio::sync::mpsc::unbounded_channel();
         let server = Self {
+            tracing_store,
             unix_listener,
             tick_interval,
             config,
