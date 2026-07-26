@@ -53,6 +53,7 @@ pub struct Config {
     pub color_scheme: ColorScheme,
     pub theme: Theme,
     pub key_map: KeyMap<Command>,
+    pub logs_store_limit: usize,
     pub max_concurrency: usize,
 }
 

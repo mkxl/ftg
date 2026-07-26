@@ -65,7 +65,7 @@ impl ViewState {
         if let Some(absolute_filepath) = self.absolute_filepath.as_deref() {
             absolute_filepath.unexpand_user().into_cow()
         } else {
-            Self::DEFAULT_TITLE.to_cow_borrowed();
+            Self::DEFAULT_TITLE.to_cow_borrowed()
         }
     }
 

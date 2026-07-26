@@ -8,15 +8,15 @@ use crate::{
 };
 use anyhow::Error as AnyhowError;
 use mkutils::{Default as MkutilsDefault, ScrollView, Terminal, Utils};
-use num::traits::{ConstOne, ConstZero};
+use num::traits::{ConstOne, ConstZero, SaturatingMul};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Rect},
     style::{Styled, Stylize},
     text::Text,
-    widgets::{Clear, Paragraph},
+    widgets::{Block, Clear, Paragraph},
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Div};
 
 #[derive(Default)]
 pub struct WindowAreaSet {
@@ -33,6 +33,7 @@ struct ViewAreaSet {
 }
 
 #[derive(MkutilsDefault)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct WindowRenderState {
     #[default(Self::DEFAULT_SHOW_STATUS_BAR)]
     show_status_bar: bool,
@@ -53,6 +54,7 @@ impl WindowRenderState {
     const DEFAULT_SHOW_GUTTER: bool = true;
     const DEFAULT_SHOW_STATUS_BAR: bool = true;
     const DEFAULT_SHOW_TABS: bool = true;
+    const DEFAULT_SHOW_LOGS: bool = false;
     const MAX_PERCENTAGE: u8 = 100;
 
     pub const fn latest_window_area_set(&self) -> &WindowAreaSet {
@@ -75,19 +77,30 @@ impl WindowRenderState {
         self.show_logs.toggle();
     }
 
-    const fn get_tabs_width(&self, config: &Config, non_status_bar_area: Rect) -> u16 {
+    fn clamp_percentage(percentage: u8) -> u8 {
+        percentage.min(Self::MAX_PERCENTAGE)
+    }
+
+    fn apply_percentage<T: Div<Output = T> + From<u8> + SaturatingMul>(value: &T, percentage: u8) -> T {
+        percentage
+            .pipe_into(Self::clamp_percentage)
+            .convert::<T>()
+            .saturating_mul(value)
+            .div(Self::MAX_PERCENTAGE.into())
+    }
+
+    fn get_tabs_width(&self, config: &Config, non_status_bar_area: Rect) -> u16 {
         if self.show_tabs {
-            non_status_bar_area
-                .width
-                .saturating_mul(config.theme.tabs_width_percentage)
-                .saturating_div(Self::MAX_PERCENTAGE)
+            Self::apply_percentage(&non_status_bar_area.width, config.theme.tabs_width_percentage)
         } else {
             u16::ZERO
         }
     }
 
     fn as_ratio(percentage: u8) -> Constraint {
-        std::todo!()
+        let percentage = percentage.pipe_into(Self::clamp_percentage).into();
+
+        Constraint::Ratio(percentage, Self::MAX_PERCENTAGE.into())
     }
 
     fn get_window_area_set(&self, config: &Config, background: Rect) -> WindowAreaSet {
@@ -99,7 +112,11 @@ impl WindowRenderState {
         let tabs_width = self.get_tabs_width(config, non_status_bar_area);
         let [tabs, view] = [Constraint::Length(tabs_width), Constraint::Fill(u16::ONE)]
             .layout_areas(Direction::Horizontal, non_status_bar_area);
-        let [logs_horizontal_constraint, logs_vertical_constraint] = config.logs_view_percentage.pipe_into(Self::as_ratio).repeated();
+        let [logs_horizontal_constraint, logs_vertical_constraint] = self
+            .show_logs
+            .if_else(config.theme.logs_view_percentage, u8::ZERO)
+            .pipe_into(Self::as_ratio)
+            .repeated();
         let logs = background.centered(logs_horizontal_constraint, logs_vertical_constraint);
 
         WindowAreaSet {
@@ -136,9 +153,21 @@ impl WindowRenderState {
         ViewAreaSet { gutter, buffer }
     }
 
-    fn render_color_spec(color_spec: ColorSpec, frame: &mut Frame, area: Rect) {
+    fn draw_color_spec(color_spec: ColorSpec, frame: &mut Frame, area: Rect) {
         Clear.render_to(frame, area);
         Paragraph::default().set_style(color_spec).render_to(frame, area);
+    }
+
+    fn draw_window(&self, config: &Config, tabs_view_state: &mut TabsViewState, frame: &mut Frame) {
+        Self::draw_color_spec(config.color_scheme.main, frame, self.latest_window_area_set.background);
+        tabs_view_state
+            .get_tabs_view(config)
+            .render(frame, self.latest_window_area_set.tabs);
+        Self::draw_color_spec(
+            config.color_scheme.status_bar,
+            frame,
+            self.latest_window_area_set.status_bar,
+        );
     }
 
     fn get_gutter(config: &Config, view: &View) -> Paragraph<'static> {
@@ -154,18 +183,6 @@ impl WindowRenderState {
             .map(|line_num| Self::gutter_line_str(line_num, config, line_num_width).fg(gutter_fg_rgb))
             .collect::<Text>()
             .into_paragraph()
-    }
-
-    fn draw_window(&self, config: &Config, tabs_view_state: &mut TabsViewState, frame: &mut Frame) {
-        Self::render_color_spec(config.color_scheme.main, frame, self.latest_window_area_set.background);
-        tabs_view_state
-            .get_tabs_view(config)
-            .render(frame, self.latest_window_area_set.tabs);
-        Self::render_color_spec(
-            config.color_scheme.status_bar,
-            frame,
-            self.latest_window_area_set.status_bar,
-        );
     }
 
     fn draw_view<'a>(
@@ -189,10 +206,20 @@ impl WindowRenderState {
         ().ok()
     }
 
+    fn draw_logs(&self, config: &Config, latest_logs: &[String], frame: &mut Frame) {
+        Self::draw_color_spec(config.color_scheme.main, frame, self.latest_window_area_set.logs);
+        latest_logs
+            .pipe_into(Paragraph::new)
+            .block(Block::bordered())
+            .render_to(frame, self.latest_window_area_set.logs);
+    }
+
+    #[expect(clippy::too_many_arguments)]
     fn draw_impl<'a>(
         &mut self,
         config: &'a Config,
         buffer_map: &'a mut BufferMap,
+        latest_logs: &[String],
         tabs_view_state: &'a mut TabsViewState,
         default_view: View<'a>,
         title: &mut Cow<'a, str>,
@@ -202,6 +229,7 @@ impl WindowRenderState {
 
         self.draw_window(config, tabs_view_state, frame);
         self.draw_view(config, buffer_map, tabs_view_state, default_view, title, frame)?;
+        self.draw_logs(config, latest_logs, frame);
 
         ().ok()
     }
@@ -210,6 +238,7 @@ impl WindowRenderState {
         &mut self,
         config: &Config,
         buffer_map: &mut BufferMap,
+        latest_logs: &[String],
         tabs_view_state: &mut TabsViewState,
         terminal: &mut Terminal,
     ) -> Result<Vec<u8>, AnyhowError> {
@@ -223,6 +252,7 @@ impl WindowRenderState {
                 self.draw_impl(
                     config,
                     buffer_map,
+                    latest_logs,
                     tabs_view_state,
                     default_view,
                     title.ref_mut(),

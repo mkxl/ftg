@@ -4,6 +4,7 @@ mod cli_args;
 mod client;
 mod command;
 mod config;
+mod operation;
 mod region;
 mod selection;
 mod server;

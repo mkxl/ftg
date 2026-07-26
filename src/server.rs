@@ -1,16 +1,18 @@
 use crate::{
     buffer::Buffer,
     buffer_map::BufferMap,
+    cli_args::LoggingArgs,
     config::Config,
+    operation::{Operation, OperationFuture},
     window::{Window, WindowCrosstermEvent, WindowOutput},
     window_map::WindowMap,
 };
 use anyhow::{Context, Error as AnyhowError};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
-use mkutils::{Output, PointU16, Rope, Screen, Socket, Utils, TracingStore};
+use mkutils::{Output, PointU16, Screen, Socket, TracingStore as LogsStore, Utils};
 use serde::{Deserialize, Serialize};
-use std::{future::Future, io::Error as IoError, path::Path, pin::Pin, time::Duration};
+use std::{io::Error as IoError, path::Path, time::Duration};
 use tokio::{
     net::{UnixListener, UnixStream, unix::SocketAddr},
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
@@ -18,12 +20,6 @@ use tokio::{
     time::Interval,
 };
 use ulid::Ulid;
-
-enum Operation {
-    InitializeBuffer { buffer_id: Ulid, rope: Rope },
-}
-
-type OperationFuture = Pin<Box<dyn 'static + Future<Output = Result<Operation, AnyhowError>> + Send + Sync>>;
 
 #[derive(Args, Default, Deserialize, Serialize)]
 pub struct Connect {
@@ -35,7 +31,7 @@ pub struct Connect {
 }
 
 pub struct Server {
-    tracing_store: TracingStore,
+    logs_store: LogsStore,
     unix_listener: UnixListener,
     tick_interval: Interval,
     config: Config,
@@ -46,6 +42,7 @@ pub struct Server {
     operation_join_set: JoinSet<Result<Operation, AnyhowError>>,
     operation_sender: UnboundedSender<Operation>,
     operation_receiver: UnboundedReceiver<Operation>,
+    latest_logs: Vec<String>,
 }
 
 impl Server {
@@ -54,17 +51,19 @@ impl Server {
     const DEFAULT_CONFIG_YAML_STR: &str = std::include_str!("default-config.yaml");
     const TICK_PERIOD_DURATION: Duration = Duration::from_millis(15);
 
-    fn new(config_filepath: Option<&Path>, tracing_store: TracingStore) -> Result<Self, AnyhowError> {
-        let unix_listener = Self::get_unix_listener()?;
+    fn new(config_filepath: Option<&Path>, logging_args: &LoggingArgs) -> Result<Self, AnyhowError> {
         let config = Self::get_config(config_filepath)?;
+        let logs_store = logging_args.init_logging(config.logs_store_limit)?;
+        let unix_listener = Self::get_unix_listener()?;
         let buffer_map = BufferMap::new();
         let tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
         let window_map = WindowMap::new();
         let (operation_future_sender, operation_future_receiver) = tokio::sync::mpsc::unbounded_channel();
         let operation_join_set = JoinSet::new();
         let (operation_sender, operation_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let latest_logs = Vec::new();
         let server = Self {
-            tracing_store,
+            logs_store,
             unix_listener,
             tick_interval,
             config,
@@ -75,6 +74,7 @@ impl Server {
             operation_join_set,
             operation_sender,
             operation_receiver,
+            latest_logs,
         };
 
         server.ok()
@@ -126,7 +126,13 @@ impl Server {
     }
 
     async fn new_window(&mut self, socket: Socket, connect: Connect) -> Result<Window, IoError> {
-        let mut window = Window::new(socket, connect.size, &self.config.key_map)?;
+        let mut window = Window::new(
+            socket,
+            connect.size,
+            &self.config.key_map,
+            self.operation_future_sender.clone(),
+            self.logs_store.clone(),
+        )?;
 
         for absolute_path in connect.absolute_paths {
             match self.get_or_insert_buffer_from_filepath(&absolute_path).await {
@@ -191,7 +197,7 @@ impl Server {
 
     async fn on_tick(&mut self) {
         self.window_map
-            .on_tick(&self.config, self.buffer_map.ref_mut())
+            .on_tick(&self.config, self.buffer_map.ref_mut(), &self.latest_logs)
             .await
             .into_iter()
             .for_each(|window_output| self.on_window_output(window_output));
@@ -216,6 +222,7 @@ impl Server {
             Operation::InitializeBuffer { buffer_id, rope } => {
                 self.buffer_map.get_mut(&buffer_id).check_present()?.set_rope(rope).ok()
             }
+            Operation::ReadLogs(logs) => self.latest_logs.assign(logs).unit().ok(),
         }
     }
 
@@ -243,7 +250,7 @@ impl Server {
     }
 
     #[tracing::instrument(err)]
-    pub async fn serve(config_filepath: Option<&Utf8Path>) -> Result<(), AnyhowError> {
-        Self::new(config_filepath.map_as_ref())?.run().await.ok()
+    pub async fn serve(config_filepath: Option<&Utf8Path>, logging_args: &LoggingArgs) -> Result<(), AnyhowError> {
+        Self::new(config_filepath.map_as_ref(), logging_args)?.run().await.ok()
     }
 }

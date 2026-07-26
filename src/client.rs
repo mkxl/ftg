@@ -1,6 +1,9 @@
-use crate::server::{Connect, Server};
+use crate::{
+    cli_args::LoggingArgs,
+    server::{Connect, Server},
+};
 use anyhow::Error as AnyhowError;
-use camino::Utf8PathBuf;
+use camino::Utf8Path;
 use crossterm::event::EventStream as CrosstermEventStream;
 use futures::{SinkExt, StreamExt};
 use mkutils::{Output, Screen, Socket, Utils};
@@ -43,7 +46,11 @@ impl Client {
         Self::run(connect, Self::connect_to_socket().await?).await
     }
 
-    pub async fn connect(connect: Connect, config_filepath: Option<Utf8PathBuf>) -> Output<(), AnyhowError> {
+    pub async fn connect(
+        connect: Connect,
+        config_filepath: Option<&Utf8Path>,
+        logging_args: &LoggingArgs,
+    ) -> Output<(), AnyhowError> {
         // NOTE:
         // - try connecting to the socket and then running
         // - if that fails, launch the server, wait, connect, and then run
@@ -52,7 +59,7 @@ impl Client {
         }
 
         tokio::select! {
-            unit_res = Server::serve(config_filepath.as_deref()) => unit_res?.output_ok(),
+            unit_res = Server::serve(config_filepath, logging_args) => unit_res?.output_ok(),
             unit_output = Self::wait_then_connect_then_run(connect) => unit_output,
         }
     }

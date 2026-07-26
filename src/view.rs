@@ -103,7 +103,8 @@ impl<'a> View<'a> {
     }
 
     pub fn on_mouse_event(&mut self, mouse_event: MouseEvent) {
-        self.on_scroll(mouse_event.kind, Self::SCROLL_COUNT);
+        self.scroll_view_state_mut()
+            .on_scroll(mouse_event.kind, Self::SCROLL_COUNT);
     }
 }
 

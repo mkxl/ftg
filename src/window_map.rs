@@ -37,11 +37,16 @@ impl WindowMap {
             .await
     }
 
-    pub async fn on_tick(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Vec<WindowOutput> {
+    pub async fn on_tick(
+        &mut self,
+        config: &Config,
+        buffer_map: &mut BufferMap,
+        latest_logs: &[String],
+    ) -> Vec<WindowOutput> {
         self.window_map
             .values_mut()
             .stream()
-            .then_collect(async |window| window.on_tick(config, buffer_map).await)
+            .then_collect(async |window| window.on_tick(config, buffer_map, latest_logs).await)
             .await
     }
 }

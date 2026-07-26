@@ -1,22 +1,27 @@
 use crate::{
-    buffer_map::BufferMap, command::Command, config::Config, tabs_view_state::TabsViewState,
+    buffer_map::BufferMap,
+    command::Command,
+    config::Config,
+    operation::{Operation, OperationFuture},
+    tabs_view_state::TabsViewState,
     window_render_state::WindowRenderState,
 };
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
 use crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, MouseEvent};
 use derive_more::Constructor;
-use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Terminal, Utils};
+use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Terminal, TracingStore as LogsStore, Utils};
 use std::io::Error as IoError;
+use tokio::sync::mpsc::UnboundedSender;
 use ulid::Ulid;
 
 macro_rules! execute {
-    ($self:expr, $buffer_map:expr, $config:expr, $method:ident $(, $args:expr)*) => {
+    ($self:expr, $buffer_map:expr, $config:expr, $($expr:tt)*) => {
         $self
             .tabs_view_state
             .active_view_mut($buffer_map, $config)?
             .as_mut()
-            .map(|view| view.$method($($args),*))
+            .map(|view| view.$($expr)*)
             .unit()
             .output_ok()
     };
@@ -41,12 +46,20 @@ pub struct Window {
     key_map_state: KeyMapState<Command>,
     tabs_view_state: TabsViewState,
     window_render_state: WindowRenderState,
+    operation_future_sender: UnboundedSender<OperationFuture>,
+    logs_store: LogsStore,
 }
 
 impl Window {
     const FORCE_TERMINAL_FULL_REDRAWS: bool = false;
 
-    pub fn new(socket: Socket, screen_size: PointU16, key_map: &KeyMap<Command>) -> Result<Self, IoError> {
+    pub fn new(
+        socket: Socket,
+        screen_size: PointU16,
+        key_map: &KeyMap<Command>,
+        operation_future_sender: UnboundedSender<OperationFuture>,
+        logs_store: LogsStore,
+    ) -> Result<Self, IoError> {
         let window_id = Ulid::new();
         let terminal = Terminal::new(screen_size, Self::FORCE_TERMINAL_FULL_REDRAWS)?;
         let key_map_state = KeyMapState::new(key_map);
@@ -59,6 +72,8 @@ impl Window {
             key_map_state,
             tabs_view_state,
             window_render_state,
+            operation_future_sender,
+            logs_store,
         };
 
         window.ok()
@@ -72,6 +87,10 @@ impl Window {
         self.tabs_view_state.push(buffer_id, absolute_filepath);
     }
 
+    async fn read_logs(logs_store: LogsStore) -> Result<Operation, AnyhowError> {
+        logs_store.read().await?.pipe_into(Operation::ReadLogs).ok()
+    }
+
     #[expect(clippy::unused_async, clippy::unused_async_trait_impl)]
     async fn on_command(
         &mut self,
@@ -81,18 +100,27 @@ impl Window {
     ) -> Output<(), AnyhowError> {
         match command {
             Command::Quit => Output::EndOk,
-            Command::MoveBackward => execute!(self, buffer_map, config, move_backward),
-            Command::MoveForward => execute!(self, buffer_map, config, move_forward),
-            Command::MoveUp => execute!(self, buffer_map, config, move_up),
-            Command::MoveDown => execute!(self, buffer_map, config, move_down),
-            Command::ScrollRight(count) => execute!(self, buffer_map, config, scroll_right, count),
-            Command::ScrollLeft(count) => execute!(self, buffer_map, config, scroll_left, count),
-            Command::ScrollUp(count) => execute!(self, buffer_map, config, scroll_up, count),
-            Command::ScrollDown(count) => execute!(self, buffer_map, config, scroll_down, count),
-            Command::Delete => execute!(self, buffer_map, config, delete),
+            Command::MoveBackward => execute!(self, buffer_map, config, move_backward()),
+            Command::MoveForward => execute!(self, buffer_map, config, move_forward()),
+            Command::MoveUp => execute!(self, buffer_map, config, move_up()),
+            Command::MoveDown => execute!(self, buffer_map, config, move_down()),
+            Command::ScrollRight(count) => {
+                execute!(self, buffer_map, config, scroll_view_state_mut().scroll_right(count))
+            }
+            Command::ScrollLeft(count) => {
+                execute!(self, buffer_map, config, scroll_view_state_mut().scroll_left(count))
+            }
+            Command::ScrollUp(count) => {
+                execute!(self, buffer_map, config, scroll_view_state_mut().scroll_up(count))
+            }
+            Command::ScrollDown(count) => {
+                execute!(self, buffer_map, config, scroll_view_state_mut().scroll_down(count))
+            }
+            Command::Delete => execute!(self, buffer_map, config, delete()),
             Command::ToggleStatusBar => self.window_render_state.toggle_status_bar().output_ok(),
             Command::ToggleGutter => self.window_render_state.toggle_gutter().output_ok(),
             Command::ToggleTabs => self.window_render_state.toggle_tabs().output_ok(),
+            Command::ToggleLogs => self.window_render_state.toggle_logs().output_ok(),
             Command::NextTab => self.tabs_view_state.cycle_next().output_ok(),
             Command::PrevTab => self.tabs_view_state.cycle_prev().output_ok(),
         }
@@ -166,16 +194,29 @@ impl Window {
         WindowCrosstermEvent::new(self.window_id, self.socket.recv().await)
     }
 
-    pub async fn on_tick_impl(&mut self, config: &Config, buffer_map: &mut BufferMap) -> Output<(), AnyhowError> {
+    pub async fn on_tick_impl(
+        &mut self,
+        config: &Config,
+        buffer_map: &mut BufferMap,
+        latest_logs: &[String],
+    ) -> Output<(), AnyhowError> {
         // TODO-9c5d7d
         if let Some(command) = self.key_map_state.on_tick(&config.key_map) {
             self.on_command(config, buffer_map, command.clone()).await?;
         }
 
+        self.operation_future_sender
+            .send(Self::read_logs(self.logs_store.clone()).pin())?;
+        // self.logs_store
+        //     .clone()
+        //     .pipe_into(Self::read_logs)
+        //     .pin()
+        //     .pipe_into_method(&self.operation_future_sender, UnboundedSender::send)?;
         self.window_render_state
             .draw(
                 config,
                 buffer_map,
+                latest_logs,
                 self.tabs_view_state.ref_mut(),
                 self.terminal.ref_mut(),
             )?
@@ -185,8 +226,13 @@ impl Window {
         ().output_ok()
     }
 
-    pub async fn on_tick(&mut self, config: &Config, buffer_map: &mut BufferMap) -> WindowOutput {
-        let output = self.on_tick_impl(config, buffer_map).await;
+    pub async fn on_tick(
+        &mut self,
+        config: &Config,
+        buffer_map: &mut BufferMap,
+        latest_logs: &[String],
+    ) -> WindowOutput {
+        let output = self.on_tick_impl(config, buffer_map, latest_logs).await;
 
         WindowOutput::new(self.window_id, output)
     }

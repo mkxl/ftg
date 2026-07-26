@@ -25,6 +25,7 @@ theme:
   gutter_lighten: 0.25
   gutter_padding: 3
   tabs_width_percentage: 25
+  logs_view_percentage: 75
 
 key_map:
   - keys: [ctrl+q]
@@ -70,11 +71,16 @@ key_map:
   - keys: [alt+t]
     binding:
       command: toggle_tabs
+  - keys: [alt+l]
+    binding:
+      command: toggle_logs
   - keys: [alt+i]
     binding:
       command: prev_tab
   - keys: [alt+k]
     binding:
       command: next_tab
+
+logs_store_limit: 1024
 
 max_concurrency: 64
