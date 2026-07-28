@@ -106,9 +106,9 @@ impl Server {
         .ok()
     }
 
-    async fn initialize_buffer(buffer_id: Ulid, absolute_filepath: Utf8PathBuf) -> Result<Operation, AnyhowError> {
+    async fn load_buffer(buffer_id: Ulid, absolute_filepath: Utf8PathBuf) -> Result<Operation, AnyhowError> {
         let rope = Buffer::rope_from_filepath(&absolute_filepath).await?;
-        let operation = Operation::InitializeBuffer { buffer_id, rope };
+        let operation = Operation::LoadBuffer { buffer_id, rope };
 
         operation.ok()
     }
@@ -117,22 +117,20 @@ impl Server {
         let (buffer_id, should_create_buffer) = self.buffer_map.get_or_insert_from_filepath(absolute_filepath).await?;
 
         if should_create_buffer {
-            let operation_future = Self::initialize_buffer(buffer_id, absolute_filepath.to_owned());
-
-            self.operation_future_sender.send(operation_future.pin())?;
+            // NOTE-d9b470: an unsized coercion is needed because [Self::load_buffer()]
+            // returns a concrete future type whereas [self.operation_future_sender.send()]
+            // expects a trait object
+            Self::load_buffer(buffer_id, absolute_filepath.to_owned())
+                .pin()
+                .coerce_unsized::<OperationFuture>()
+                .pipe_into_method(&self.operation_future_sender, UnboundedSender::send)?;
         }
 
         buffer_id.ok()
     }
 
     async fn new_window(&mut self, socket: Socket, connect: Connect) -> Result<Window, IoError> {
-        let mut window = Window::new(
-            socket,
-            connect.size,
-            &self.config.key_map,
-            self.operation_future_sender.clone(),
-            self.logs_store.clone(),
-        )?;
+        let mut window = Window::new(socket, connect.size, &self.config.key_map)?;
 
         for absolute_path in connect.absolute_paths {
             match self.get_or_insert_buffer_from_filepath(&absolute_path).await {
@@ -195,12 +193,16 @@ impl Server {
         self.close_window(&window_output.window_id, anyhow_res);
     }
 
-    async fn on_tick(&mut self) {
+    async fn on_tick(&mut self) -> Result<(), AnyhowError> {
+        self.latest_logs = self.logs_store.read().await?;
+
         self.window_map
             .on_tick(&self.config, self.buffer_map.ref_mut(), &self.latest_logs)
             .await
             .into_iter()
             .for_each(|window_output| self.on_window_output(window_output));
+
+        ().ok()
     }
 
     fn on_operation_future(&mut self, operation_future_opt: Option<OperationFuture>) -> Result<(), AnyhowError> {
@@ -219,10 +221,9 @@ impl Server {
 
     fn complete_operation(&mut self, operation_opt: Option<Operation>) -> Result<(), AnyhowError> {
         match operation_opt.check_next()? {
-            Operation::InitializeBuffer { buffer_id, rope } => {
+            Operation::LoadBuffer { buffer_id, rope } => {
                 self.buffer_map.get_mut(&buffer_id).check_present()?.set_rope(rope).ok()
             }
-            Operation::ReadLogs(logs) => self.latest_logs.assign(logs).unit().ok(),
         }
     }
 
@@ -232,7 +233,7 @@ impl Server {
             window_crossterm_event = self.window_map.next_window_crossterm_event() => {
                 self.on_window_crossterm_event(window_crossterm_event).await
             },
-            _instant = self.tick_interval.tick() => self.on_tick().await.ok(),
+            _instant = self.tick_interval.tick() => self.on_tick().await?.ok(),
             operation_future_opt = self.operation_future_receiver.recv(), if self.operation_join_set.len() < self.config.max_concurrency => self.on_operation_future(operation_future_opt),
             operation_res_res = self.operation_join_set.join_next().wait_then_unwrap_or_pending() => self.on_operation(operation_res_res),
             operation_opt = self.operation_receiver.recv() => self.complete_operation(operation_opt)

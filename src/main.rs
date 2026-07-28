@@ -10,6 +10,7 @@ mod selection;
 mod server;
 mod tabs_view;
 mod tabs_view_state;
+mod ui;
 mod view;
 mod view_state;
 mod view_state_set;

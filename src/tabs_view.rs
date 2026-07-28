@@ -1,4 +1,4 @@
-use crate::{config::Config, tabs_view_state::TabsViewState, view_state::ViewState};
+use crate::{config::Config, tabs_view_state::TabsViewState, ui::Ui, view_state::ViewState};
 use crossterm::event::MouseEvent;
 use mkutils::{PointI16, PointUsize, ScrollView, ScrollViewState, Utils};
 use num::traits::ConstOne;
@@ -6,7 +6,6 @@ use ratatui::{
     Frame,
     layout::Rect,
     style::{Style, Styled},
-    widgets::{Block, BorderType},
 };
 
 pub struct TabsView<'a> {
@@ -96,11 +95,10 @@ impl ScrollView for TabsView<'_> {
                 .extended_grapheme_substring(scroll_offset.x..)
                 .into_line()
                 .set_style(tab_color_scheme.filepath);
-            let tab_block = Block::bordered().border_type(BorderType::Rounded);
             let tab = std::vec![title_line, filepath_title_line]
                 .into_paragraph()
                 .set_style(tab_color_scheme.tab)
-                .block(tab_block);
+                .block(Ui::rounded_bordered_block());
 
             tab.render_to(frame, tab_area);
         }

@@ -1,18 +1,13 @@
 use crate::{
-    buffer_map::BufferMap,
-    command::Command,
-    config::Config,
-    operation::{Operation, OperationFuture},
-    tabs_view_state::TabsViewState,
+    buffer_map::BufferMap, command::Command, config::Config, tabs_view_state::TabsViewState,
     window_render_state::WindowRenderState,
 };
 use anyhow::Error as AnyhowError;
 use camino::Utf8PathBuf;
 use crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, MouseEvent};
 use derive_more::Constructor;
-use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Terminal, TracingStore as LogsStore, Utils};
+use mkutils::{KeyMap, KeyMapState, Output, PointU16, ScrollView, Socket, Terminal, Utils};
 use std::io::Error as IoError;
-use tokio::sync::mpsc::UnboundedSender;
 use ulid::Ulid;
 
 macro_rules! execute {
@@ -46,20 +41,12 @@ pub struct Window {
     key_map_state: KeyMapState<Command>,
     tabs_view_state: TabsViewState,
     window_render_state: WindowRenderState,
-    operation_future_sender: UnboundedSender<OperationFuture>,
-    logs_store: LogsStore,
 }
 
 impl Window {
     const FORCE_TERMINAL_FULL_REDRAWS: bool = false;
 
-    pub fn new(
-        socket: Socket,
-        screen_size: PointU16,
-        key_map: &KeyMap<Command>,
-        operation_future_sender: UnboundedSender<OperationFuture>,
-        logs_store: LogsStore,
-    ) -> Result<Self, IoError> {
+    pub fn new(socket: Socket, screen_size: PointU16, key_map: &KeyMap<Command>) -> Result<Self, IoError> {
         let window_id = Ulid::new();
         let terminal = Terminal::new(screen_size, Self::FORCE_TERMINAL_FULL_REDRAWS)?;
         let key_map_state = KeyMapState::new(key_map);
@@ -72,8 +59,6 @@ impl Window {
             key_map_state,
             tabs_view_state,
             window_render_state,
-            operation_future_sender,
-            logs_store,
         };
 
         window.ok()
@@ -85,10 +70,6 @@ impl Window {
 
     pub fn push(&mut self, buffer_id: Ulid, absolute_filepath: Option<Utf8PathBuf>) {
         self.tabs_view_state.push(buffer_id, absolute_filepath);
-    }
-
-    async fn read_logs(logs_store: LogsStore) -> Result<Operation, AnyhowError> {
-        logs_store.read().await?.pipe_into(Operation::ReadLogs).ok()
     }
 
     #[expect(clippy::unused_async, clippy::unused_async_trait_impl)]
@@ -205,21 +186,6 @@ impl Window {
             self.on_command(config, buffer_map, command.clone()).await?;
         }
 
-        // TODO-c0da47
-        self.logs_store
-            .clone()
-            .pipe_into(Self::read_logs)
-            .pin()
-            // .pipe_into(|x| self.operation_future_sender.send(x))?;
-            .pipe_into_method(&self.operation_future_sender, UnboundedSender::send)?;
-
-        // self.operation_future_sender
-        //     .send()?;
-        // self.logs_store
-        //     .clone()
-        //     .pipe_into(Self::read_logs)
-        //     .pin()
-        //     .pipe_into_method(&self.operation_future_sender, UnboundedSender::send)?;
         self.window_render_state
             .draw(
                 config,
@@ -228,7 +194,7 @@ impl Window {
                 self.tabs_view_state.ref_mut(),
                 self.terminal.ref_mut(),
             )?
-            .send_to(&mut self.socket)
+            .send_to(self.socket.ref_mut())
             .await?;
 
         ().output_ok()

@@ -3,6 +3,7 @@ use crate::{
     buffer_map::BufferMap,
     config::{ColorSpec, Config},
     tabs_view_state::TabsViewState,
+    ui::Ui,
     view::View,
     view_state::ViewState,
 };
@@ -14,7 +15,7 @@ use ratatui::{
     layout::{Constraint, Direction, Rect},
     style::{Styled, Stylize},
     text::Text,
-    widgets::{Block, Clear, Paragraph},
+    widgets::{Clear, Paragraph},
 };
 use std::{borrow::Cow, ops::Div};
 
@@ -210,7 +211,7 @@ impl WindowRenderState {
         Self::draw_color_spec(config.color_scheme.main, frame, self.latest_window_area_set.logs);
         latest_logs
             .pipe_into(Paragraph::new)
-            .block(Block::bordered())
+            .block(Ui::rounded_bordered_block())
             .render_to(frame, self.latest_window_area_set.logs);
     }
 
