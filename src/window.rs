@@ -205,8 +205,16 @@ impl Window {
             self.on_command(config, buffer_map, command.clone()).await?;
         }
 
-        self.operation_future_sender
-            .send(Self::read_logs(self.logs_store.clone()).pin())?;
+        // TODO-c0da47
+        self.logs_store
+            .clone()
+            .pipe_into(Self::read_logs)
+            .pin()
+            // .pipe_into(|x| self.operation_future_sender.send(x))?;
+            .pipe_into_method(&self.operation_future_sender, UnboundedSender::send)?;
+
+        // self.operation_future_sender
+        //     .send()?;
         // self.logs_store
         //     .clone()
         //     .pipe_into(Self::read_logs)
