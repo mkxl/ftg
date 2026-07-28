@@ -34,12 +34,15 @@ pub struct LoggingArgs {
 impl LoggingArgs {
     const LOGGING_JSON_ENABLED: bool = true;
 
-    fn init_logging_impl<W: 'static + for<'a> MakeWriter<'a> + Send + Sync>(
+    fn init_logging_impl<
+        W1: 'static + for<'a> MakeWriter<'a> + Send + Sync,
+        W2: 'static + for<'a> MakeWriter<'a> + Send + Sync,
+    >(
         &self,
-        writer: W,
-        writer_logs_store: LogsStore,
+        writer_1: W1,
+        writer_2: W2,
     ) {
-        let writer = writer.and(writer_logs_store);
+        let writer = writer_1.and(writer_2);
 
         Logging::default()
             .with_json_enabled(Self::LOGGING_JSON_ENABLED)
@@ -49,16 +52,18 @@ impl LoggingArgs {
             .init();
     }
 
-    pub fn init_logging(&self, logs_store_limit: usize) -> Result<LogsStore, IoError> {
-        let [writer_logs_store, reader_logs_store] = LogsStore::new(logs_store_limit).repeated();
+    pub fn init_logging(&self, _logs_store_limit: usize) -> Result<LogsStore, IoError> {
+        // let [writer_logs_store, reader_logs_store] = LogsStore::new(logs_store_limit).repeated();
+        // let [writer_logs_store, reader_logs_store] = LogsStore::inactive().repeated();
 
         if let Some(logs_filepath) = self.logs_filepath.as_deref() {
-            self.init_logging_impl(logs_filepath.create()?, writer_logs_store);
+            self.init_logging_impl(logs_filepath.create()?, std::io::sink);
         } else {
-            self.init_logging_impl(Logging::default_writer, writer_logs_store);
+            self.init_logging_impl(Logging::default_writer, std::io::sink);
         }
 
-        reader_logs_store.ok()
+        // reader_logs_store.ok()
+        LogsStore::inactive().ok()
     }
 }
 

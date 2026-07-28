@@ -40,12 +40,12 @@ impl BufferMap {
             .await
             .context_path(Self::CONTEXT_GET_FILEPATH_METADATA, filepath)?
             .ino();
-        let (buffer, should_create_buffer) = if let Some(buffer_id) = self.buffer_id_from_inode.get(&inode) {
+        let (buffer, should_load_buffer) = if let Some(buffer_id) = self.buffer_id_from_inode.get(&inode) {
             self.get(buffer_id).check_present()?.pair(false)
         } else {
             self.add_buffer(inode, Buffer::new()).as_immut().pair(true)
         };
 
-        buffer.buffer_id().pair(should_create_buffer).ok()
+        buffer.buffer_id().pair(should_load_buffer).ok()
     }
 }

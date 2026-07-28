@@ -114,9 +114,9 @@ impl Server {
     }
 
     async fn get_or_insert_buffer_from_filepath(&mut self, absolute_filepath: &Utf8Path) -> Result<Ulid, AnyhowError> {
-        let (buffer_id, should_create_buffer) = self.buffer_map.get_or_insert_from_filepath(absolute_filepath).await?;
+        let (buffer_id, should_load_buffer) = self.buffer_map.get_or_insert_from_filepath(absolute_filepath).await?;
 
-        if should_create_buffer {
+        if should_load_buffer {
             // NOTE-d9b470: an unsized coercion is needed because [Self::load_buffer()]
             // returns a concrete future type whereas [self.operation_future_sender.send()]
             // expects a trait object
@@ -194,7 +194,8 @@ impl Server {
     }
 
     async fn on_tick(&mut self) -> Result<(), AnyhowError> {
-        self.latest_logs = self.logs_store.read().await?;
+        // self.latest_logs = self.logs_store.read().await?;
+        self.logs_store.ref_immut().pipe_into(std::convert::identity);
 
         self.window_map
             .on_tick(&self.config, self.buffer_map.ref_mut(), &self.latest_logs)
