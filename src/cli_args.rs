@@ -31,6 +31,7 @@ pub struct LoggingArgs {
     tokio_console_port: u16,
 }
 
+#[expect(clippy::unused_self, dead_code)]
 impl LoggingArgs {
     const LOGGING_JSON_ENABLED: bool = true;
 
@@ -56,11 +57,11 @@ impl LoggingArgs {
         // let [writer_logs_store, reader_logs_store] = LogsStore::new(logs_store_limit).repeated();
         // let [writer_logs_store, reader_logs_store] = LogsStore::inactive().repeated();
 
-        if let Some(logs_filepath) = self.logs_filepath.as_deref() {
-            self.init_logging_impl(logs_filepath.create()?, std::io::sink);
-        } else {
-            self.init_logging_impl(Logging::default_writer, std::io::sink);
-        }
+        // if let Some(logs_filepath) = self.logs_filepath.as_deref() {
+        //     self.init_logging_impl(logs_filepath.create()?, std::io::sink);
+        // } else {
+        //     self.init_logging_impl(Logging::default_writer, std::io::sink);
+        // }
 
         // reader_logs_store.ok()
         LogsStore::inactive().ok()
