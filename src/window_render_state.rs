@@ -49,6 +49,7 @@ pub struct WindowRenderState {
     show_logs: bool,
 
     latest_window_area_set: WindowAreaSet,
+    latest_title: String,
 }
 
 impl WindowRenderState {
@@ -171,16 +172,20 @@ impl WindowRenderState {
         );
     }
 
-    fn get_gutter(config: &Config, view: &View) -> Paragraph<'static> {
+    fn get_gutter(config: &Config, view: &View, gutter_height: u16) -> Paragraph<'static> {
         let line_num_width = view.line_num_width();
         let gutter_fg_rgb = config.gutter_fg_rgb();
-
-        view.view_state()
-            .scroll_view_state()
-            .scroll_offset()
+        let scroll_offset = view.view_state().scroll_view_state().scroll_offset().y;
+        let visible_line_count = view
+            .buffer()
+            .size()
             .y
+            .saturating_sub(scroll_offset)
+            .min(gutter_height.into());
+
+        scroll_offset
             .incremented()
-            .range_from_len(view.buffer().size().y)
+            .range_from_len(visible_line_count)
             .map(|line_num| Self::gutter_line_str(line_num, config, line_num_width).fg(gutter_fg_rgb))
             .collect::<Text>()
             .into_paragraph()
@@ -200,7 +205,7 @@ impl WindowRenderState {
             .unwrap_or(default_view);
         let view_area_set = self.get_view_area_set(config, &view, self.latest_window_area_set.view);
 
-        Self::get_gutter(config, &view).render_to(frame, view_area_set.gutter);
+        Self::get_gutter(config, &view, view_area_set.gutter.height).render_to(frame, view_area_set.gutter);
         view.render(frame, view_area_set.buffer);
         title.assign(view.into_view_state().title().to_cow_borrowed());
 
@@ -248,20 +253,23 @@ impl WindowRenderState {
         let default_view = View::new(default_view_state.ref_mut(), default_buffer.ref_mut(), config);
         let mut title = Cow::<str>::default();
 
-        terminal
-            .draw(|frame| {
-                self.draw_impl(
-                    config,
-                    buffer_map,
-                    latest_logs,
-                    tabs_view_state,
-                    default_view,
-                    title.ref_mut(),
-                    frame,
-                )
-            })?
-            .set_title(title)?
-            .take_bytes()
-            .ok()
+        terminal.draw(|frame| {
+            self.draw_impl(
+                config,
+                buffer_map,
+                latest_logs,
+                tabs_view_state,
+                default_view,
+                title.ref_mut(),
+                frame,
+            )
+        })?;
+
+        if title.as_ref() != self.latest_title {
+            terminal.set_title(title.as_ref())?;
+            self.latest_title = title.into_owned();
+        }
+
+        terminal.take_bytes().ok()
     }
 }

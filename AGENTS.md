@@ -11,7 +11,8 @@
 - Default CLI behavior is connect mode: no subcommand calls `Client::connect`; `ftg serve` runs only the server.
 - The client starts a server automatically if `/tmp/ftg.socket` is not accepting connections, waits 25 ms, then connects.
 - The server always binds `/tmp/ftg.socket` and removes an existing socket path before binding.
-- Runtime flow is `Server` -> `WindowMap`/`BufferMap` -> `Window` -> `ViewStateSet`/`View`; terminal redraw happens on a 15 ms tick in `Server::step`.
+- Runtime flow is `Server` -> `WindowMap`/`BufferMap` -> `Window` -> `ViewStateSet`/`View`; a 15 ms tick in `Server::step` handles key-map timing and redraws only invalidated windows or elapsed UI deadlines.
+- Resize events are coalesced per window and applied immediately before its next redraw; the render interval skips missed ticks instead of replaying overdue frames.
 
 ## Config And Commands
 - The built-in config is `src/default-config.yaml`, embedded with `include_str!`; update it with any config schema/key binding changes.

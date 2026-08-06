@@ -10,6 +10,7 @@ use crate::{
 use anyhow::{Context, Error as AnyhowError};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
+use crossterm::event::Event as CrosstermEvent;
 use mkutils::{Output, PointU16, Screen, Socket, TracingStore as LogsStore, Utils};
 use serde::{Deserialize, Serialize};
 use std::{io::Error as IoError, path::Path, time::Duration};
@@ -17,7 +18,7 @@ use tokio::{
     net::{UnixListener, UnixStream, unix::SocketAddr},
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     task::{JoinError, JoinSet},
-    time::Interval,
+    time::{Interval, MissedTickBehavior},
 };
 use ulid::Ulid;
 
@@ -56,7 +57,8 @@ impl Server {
         let logs_store = logging_args.init_logging(config.logs_store_limit)?;
         let unix_listener = Self::get_unix_listener()?;
         let buffer_map = BufferMap::new();
-        let tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
+        let mut tick_interval = Self::TICK_PERIOD_DURATION.into_interval();
+        tick_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let window_map = WindowMap::new();
         let (operation_future_sender, operation_future_receiver) = tokio::sync::mpsc::unbounded_channel();
         let operation_join_set = JoinSet::new();
@@ -167,6 +169,10 @@ impl Server {
         &mut self,
         window_crossterm_event: WindowCrosstermEvent,
     ) -> Result<(), AnyhowError> {
+        let redraw_all_windows = matches!(
+            &window_crossterm_event.crossterm_event,
+            Output::Ok(CrosstermEvent::Key(_))
+        );
         let window = self
             .window_map
             .get_mut(&window_crossterm_event.window_id)
@@ -180,6 +186,11 @@ impl Server {
             Output::EndOk => Output::EndOk,
             Output::EndErr(anyhow_error) => Output::EndErr(anyhow_error),
         };
+
+        if redraw_all_windows {
+            self.window_map.request_redraw();
+        }
+
         let Some(anyhow_res) = anyhow_output.into_end() else { return ().ok() };
 
         self.close_window(&window_crossterm_event.window_id, anyhow_res);
@@ -197,11 +208,20 @@ impl Server {
         // self.latest_logs = self.logs_store.read().await?;
         self.logs_store.ref_immut().pipe_into(std::convert::identity);
 
-        self.window_map
+        let window_outputs = self
+            .window_map
             .on_tick(&self.config, self.buffer_map.ref_mut(), &self.latest_logs)
-            .await
-            .into_iter()
-            .for_each(|window_output| self.on_window_output(window_output));
+            .await;
+        let mut redraw_all_windows = false;
+
+        for window_output in window_outputs {
+            redraw_all_windows |= window_output.redraw_all_windows;
+            self.on_window_output(window_output);
+        }
+
+        if redraw_all_windows {
+            self.window_map.request_redraw();
+        }
 
         ().ok()
     }
@@ -223,9 +243,13 @@ impl Server {
     fn complete_operation(&mut self, operation_opt: Option<Operation>) -> Result<(), AnyhowError> {
         match operation_opt.check_next()? {
             Operation::LoadBuffer { buffer_id, rope } => {
-                self.buffer_map.get_mut(&buffer_id).check_present()?.set_rope(rope).ok()
+                self.buffer_map.get_mut(&buffer_id).check_present()?.set_rope(rope);
             }
         }
+
+        self.window_map.request_redraw();
+
+        ().ok()
     }
 
     async fn step(&mut self) -> Result<(), AnyhowError> {

@@ -29,6 +29,10 @@ impl WindowMap {
         self.window_map.remove(window_id);
     }
 
+    pub fn request_redraw(&mut self) {
+        self.window_map.values_mut().for_each(Window::request_redraw);
+    }
+
     pub async fn next_window_crossterm_event(&mut self) -> WindowCrosstermEvent {
         self.window_map
             .values_mut()

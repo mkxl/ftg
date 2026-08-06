@@ -75,11 +75,14 @@ impl ScrollView for TabsView<'_> {
         let scroll_offset = self.scroll_view_state().scroll_offset();
         let tab_offset = scroll_offset.y.saturating_div(Self::TAB_HEIGHT.into());
         let enumerated_view_states = self.tabs_view_state.as_slice().iter().enumerate().skip(tab_offset);
+        let visible_tab_count = usize::from(tabs_area.height.div_ceil(Self::TAB_HEIGHT));
 
         for (view_state_render_index, (view_state_actual_index, view_state)) in
-            enumerated_view_states.enumerated::<u16>()
+            enumerated_view_states.enumerated::<u16>().take(visible_tab_count)
         {
-            let tab_y = Self::TAB_HEIGHT * view_state_render_index;
+            let tab_y = tabs_area
+                .y
+                .saturating_add(Self::TAB_HEIGHT.saturating_mul(view_state_render_index));
             let tab_area = Rect::new(tab_x, tab_y, tab_width, Self::TAB_HEIGHT);
             let tab_is_active = view_state_actual_index
                 .convert::<usize>()

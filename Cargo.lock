@@ -509,7 +509,7 @@ dependencies = [
 [[package]]
 name = "crossterm"
 version = "0.29.0"
-source = "git+https://github.com/crossterm-rs/crossterm?rev=4f08595#4f08595ef4477de2d504dcced24060ed9e3d582a"
+source = "git+https://github.com/crossterm-rs/crossterm?rev=e27ee30#e27ee3054006616e13552d3dc176f92e315c0489"
 dependencies = [
  "bitflags 2.13.0",
  "crossterm_winapi",
@@ -1433,9 +1433,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils"
-version = "0.1.190"
+version = "0.1.194"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db24411536f00575a10ebe78a69c744c15bbb6b8fc7caa6f4ead0d3d391f9e53"
+checksum = "de6be12f750c5045d7fbcc3e846d650db3b27a4517f4dcf5f784a0669c0bd326"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -1476,9 +1476,9 @@ dependencies = [
 
 [[package]]
 name = "mkutils-macros"
-version = "0.1.190"
+version = "0.1.194"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d811f276eee7b8fb41c64934f8cb2c0b8a11974702c08c2f6c3761af6c1a7de"
+checksum = "6becb7dbc902f7dfb77a5f23e1c9404c5e59ce684ad3618dc5b5efb680ff77c7"
 dependencies = [
  "heck",
  "proc-macro2",
