@@ -1,6 +1,6 @@
 {
   inputs = {
-    crane.url = "github:ipetkov/crane";
+    crane.url = "github:ipetkov/crane/2510f2c";  # TODO: [https://github.com/crossterm-rs/crossterm/pull/1099]
     fenix = {
       url = "github:nix-community/fenix/monthly";
       inputs.nixpkgs.follows = "nixpkgs";
