@@ -12,8 +12,7 @@ use std::{
     time::Duration,
 };
 
-pub struct Client;
-
+#[mkutils::empty(pub)]
 impl Client {
     const MOUSE_CAPTURE_ENABLED: bool = true;
     const BRACKETED_PASTE_ENABLED: bool = true;

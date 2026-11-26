@@ -11,7 +11,7 @@ use std::io::Error as IoError;
 use tracing_subscriber::fmt::{MakeWriter, writer::MakeWriterExt};
 
 #[derive(Args)]
-struct Serve {}
+struct Serve;
 
 #[derive(From, Subcommand)]
 enum CliCommand {
